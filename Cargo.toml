@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "axum-api",        # your existing axum project
+    "token-gen",  # new generator binary
+]
+resolver = "2"

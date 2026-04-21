@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO parcel_history (parcel_id, driver_id, latitude, longitude, timestamp, status)\n             SELECT u.p_id, u.d_id, u.lat, u.lon, u.ts, u.status\n             FROM UNNEST($1::text[], $2::text[], $3::float[], $4::float[], $5::bigint[], $6::text[]) AS u(p_id, d_id, lat, lon, ts, status)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "Float8Array",
+        "Float8Array",
+        "Int8Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "11a82cdccedc147f08a1322796b7d8b656190fd836821bd78ccd6c32fd9fcb30"
+}

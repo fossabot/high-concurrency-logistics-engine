@@ -1,0 +1,139 @@
+services:
+  axum-api:
+    build:
+      context: .
+      dockerfile: ./axum-api/Dockerfile
+    image: parcel-app-trial:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:mysecretpassword@postgres_db:5432/postgres
+      - REDIS_URL=redis://redis:6379
+      - RUST_LOG=info
+      - PORT=8080
+      - HOST=0.0.0.0
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+    ulimits:
+      nofile:
+        soft: 30000
+        hard: 30000
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres_db:
+        condition: service_healthy
+  postgres_db:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ulimits:
+      nofile:
+        soft: 1000
+        hard: 1000
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--maxclients", "20000"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Redis also needs high limits if handling 10000s of connections
+    ulimits:
+      nofile:
+        soft: 30000
+        hard: 30000
+
+  k6-test:
+    image: grafana/k6:latest
+    profiles: ["test"] # This stops it from starting automatically
+    volumes:
+      - ./loadtests:/scripts
+      - token-data:/loadtests:ro
+    ulimits:
+      nofile:
+        soft: 30000
+        hard: 30000
+    command: run /scripts/driver.js
+    depends_on:
+      token-gen:
+        condition: service_completed_successfully
+
+  token-gen:
+    build:
+      context: .
+      dockerfile: ./token-gen/Dockerfile # Dockerfile that runs your Rust binary
+    environment:
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
+      - TOKEN_OUTPUT=${TOKEN_OUTPUT}
+      - TOKEN_COUNT=${TOKEN_COUNT}
+    volumes:
+      - token-data:/loadtests
+    # Binary runs, writes token to /token-store/token.txt, and exits
+    command: ["./token-gen", "--output", "/loadtests/token.txt"]
+
+  # ************** Observability Stack ************************************
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    depends_on:
+      - axum-api
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000" # moved to 3001 — 3000 is free for your API metrics endpoint if needed
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+volumes:
+  postgres-data:
+  token-data:
+  prometheus-data:
+  grafana-data:

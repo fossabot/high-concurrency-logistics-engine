@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Your Rust API — axum-prometheus exposes /metrics at port 8080
+  - job_name: "axum-api"
+    static_configs:
+      - targets: ["axum-api:8080"]
+    metrics_path: "/metrics"
+
+  # System metrics from Node Exporter
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Prometheus itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,16 @@
+[package]
+name = "token-gen"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "token-gen"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+dotenvy = "0.15"
+hex = "0.4"
+base64 = { version = "0.22" }
+ed25519-dalek = { version = "2" }
+serde_json = { version = "1" }
