@@ -27,72 +27,28 @@ This system solves all four end to end.
 ## Architecture
 
 ```
-Driver Device (GPS update every 2s)
-        │
-        ▼
-┌─────────────────────────────────┐
-│   Axum WebSocket Handler        │
-│   Ed25519 JWT Authentication    │
-│   parcel_id + driver_id +       │
-│   lat/lng + timestamp (u64)     │
-└──────────────┬──────────────────┘
-               │
-               ▼
-┌─────────────────────────────────┐
-│   Redis Lua Atomic Script       │
-│   HGET → last known position    │
-│   Compare → deduplicate         │
-│   HSET → update position        │
-│   XADD → Redis Stream           │
-└──────────────┬──────────────────┘
-               │
-               ▼
-┌─────────────────────────────────┐
-│   Redis Stream Consumer Group   │
-│   Unique worker ID via OnceLock │
-│   Each container gets own ID    │
-│   No duplicate message processing│
-└──────────────┬──────────────────┘
-               │
-        ┌──────┴──────┐
-        ▼             ▼
-┌──────────────┐  ┌────────────────────┐
-│  Postgres    │  │  Customer WebSocket │
-│  Batch Writer│  │  Live position push │
-│  1000 entries│  │  or last known pos  │
-│  SQLx unnest │  │  from Redis cache   │
-└──────────────┘  └────────────────────┘
-```
+Driver Device (GPS update every 2s) Client --->  Backend Axum Api ---> Redis publish and Geoadd with HSET(Last Position)
 
----
+At Every 10s in Axum Api,  Redis Stream through matching with Last position using Lua Script to prevent deduplication
 
-## Key Engineering Decisions
+At Every 20s Axum Api, Background Task runs which sends data from Redis Stream to Postgresql through Unnest
 
-### Ed25519 JWT Authentication
-All WebSocket upgrades and REST endpoints use JWT signed with **Ed25519** — an asymmetric algorithm chosen deliberately over the common HS256. Ed25519 is faster than RSA, produces smaller signatures, and is used by security-conscious systems like Cloudflare and Signal. The same token validates both REST and WebSocket layers without a separate session mechanism.
+Customer Device ---> Backend Axum Api ---> Check and create subscriber with redis if driver is availaible or not and send the last position to customer if the driver current location is not in the redis pubdub
 
-### Atomic Deduplication with Redis Lua Scripts
-Before writing to the stream, the system checks the driver's last known position via `HGET`. This check and the subsequent `XADD` are wrapped in a **Lua script executed atomically server-side in Redis**. No race condition where two simultaneous updates both pass the check and both write to the stream. Exactly-once semantics at the ingestion layer.
+All this is protected by ED25519 keys
 
-### Horizontal Scaling via Redis Consumer Groups with OnceLock
-The system scales across multiple containers from day one. Each container participates in a Redis Stream consumer group with a **unique worker identity generated at startup using OnceLock** — initialized exactly once per process, thread-safely, without Mutex overhead on every request. Dead containers are detected automatically and their pending entries requeued to active consumers.
+Mistakes
 
-### Postgres Batch Writing with SQLx Unnest
-A background Tokio task collects stream entries and writes them to Postgres using **SQLx `unnest` batching — 3000 entries per transaction**. This protects the database from write amplification during peak load. At 10,000 concurrent drivers Postgres used only **4% CPU and 42MB RAM** — proof the batching strategy works correctly.
+I originally tried to write to Postgres every time a message came in, but the I/O killed the 1 CPU limit instantly. I moved to the 20s Unnest background task to let the DB breathe.
+Also Ephimeral ports were exhausted in windows due to time_wait so created docker compose for testing.
 
-### Customer Live Tracking with Graceful Fallback
-Customers connect via WebSocket and receive live driver position updates pushed from the Redis Stream. If no live update is available, the server returns the **last known position from Redis cache** — so customers always see something meaningful even during brief network gaps. Inactive customer connections are detected via Ping/Pong heartbeat and removed cleanly.
+Key Problems Ive faced is 
 
-### Tokio Pin with Interval Ticks
-Stream publishing uses `tokio::time::interval` with `Pin` for precise async timing control — ensuring interval ticks fire at the correct cadence without drifting under load. Critical when position updates need 2-second resolution across 15,000 simultaneous connections.
+--Taking Consumer Group Streams to Postresql through UNNEST i.e., creating a temporary set of row against the columns: In this main problem i had was to parse the redis value to my struct and then send it to database.
 
-### Structured Tracing for Observability
-The system uses `tracing` with structured spans rather than log lines. Every request can be followed through the full stack — WebSocket upgrade, position check, stream write, consumer processing, database batch. Production observability via **Prometheus + Grafana + Node Exporter**.
+--Deleting after sending to Database was also quiet problematic when i used inbound redis ack and del
 
-### Arc AppState for Safe Shared State
-Application state — database pool, Redis connection manager, JWT keys — is wrapped in `Arc` and shared safely across async threads without cloning expensive resources on every request.
-
----
+ 
 
 ## Tech Stack
 
@@ -108,21 +64,7 @@ Application state — database pool, Redis connection manager, JWT keys — is w
 | Containerization | Docker Compose | Linux kernel networking, health checks |
 | Load Testing | k6 + token-gen | Ed25519 signed tokens + WebSocket load testing |
 
----
 
-## API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/register` | None | Register new user |
-| POST | `/login` | None | Login, receive JWT |
-| POST | `/verify` | None | Verify account |
-| GET | `/ws?parcel_id=x&role=driver` | JWT | Driver WebSocket — send location updates |
-| GET | `/customer?parcel_id=x&role=customer` | JWT | Customer WebSocket — receive live tracking |
-| GET | `/health` | None | Health check |
-| GET | `/metrics` | None | Prometheus metrics |
-
----
 
 ## WebSocket Message Format
 
@@ -149,7 +91,8 @@ Application state — database pool, Redis connection manager, JWT keys — is w
   "parcel_id": "parcel-123",
   "latitude": 12.9716,
   "longitude": 77.5946,
-  "timestamp": 1714123456
+  "timestamp": 1714123456,
+  "status": "picked_up"
 }
 ```
 
@@ -159,24 +102,7 @@ Application state — database pool, Redis connection manager, JWT keys — is w
 
 > Full methodology, stages, and raw output: [LOADTEST.md](./LOADTEST.md)
 
-| Metric | Result |
-|---|---|
-| Concurrent WebSocket VUs | 15,000 |
-| Success rate | 99.9999% |
-| WebSocket errors | 0 |
-| Avg connection time | 6.35ms |
-| p95 connection time | 19.5ms |
-| Location updates processed | 4,994,895 |
-| Sustained throughput | 4,625 updates/second |
 
-### Resource Usage at 15,000 Concurrent Connections
-
-| Component | CPU | RAM | Network I/O |
-|---|---|---|---|
-| Rust API (Axum) | 1.45 cores | 1.873GB | 1.55GB in / 3.1GB out |
-| Redis | 0.42 cores | 55MB | 1.79GB in / 215MB out |
-| Postgres | 0.04 cores | 42MB | 8.22KB in / 3.97KB out |
-| **Total Stack** | **1.91 cores** | **~1.97GB** | — |
 
 ### Scaling Analysis
 

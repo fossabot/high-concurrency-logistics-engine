@@ -20,7 +20,7 @@ const BASE_URL = __ENV.BASE_URL || "ws://host.docker.internal:8080";
 const START_LAT = 12.9716;
 const START_LNG = 77.5946;
 
-// ─── Stages: ramp to 5000 VU ──────────────────────────────────────────────────
+// ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
   stages: [
     { duration: "2m", target: 2000 }, // Slow start

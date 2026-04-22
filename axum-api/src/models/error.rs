@@ -4,7 +4,7 @@ use axum::{
 };
 
 #[derive(thiserror::Error, Debug)]
-pub enum SyncError {
+pub enum SyncError {                    //Custom Error Types
     #[error("Redis failure: {0}")]
     Redis(#[from] redis::RedisError),
 
@@ -21,14 +21,14 @@ pub enum SyncError {
 impl IntoResponse for SyncError {
     fn into_response(self) -> Response {
         // Log the actual error for the server admin
-        tracing::error!("Sync Error: {:?}", self);
+        tracing::error!(error = ?self, "Sync Error");
 
         // Map your internal errors to external HTTP statuses
         let (status, error_message) = match self {
-            SyncError::Postgres(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-            SyncError::Redis(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-            SyncError::Json(e) => (StatusCode::BAD_REQUEST, e.to_string()),
-            SyncError::Other(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
+            SyncError::Postgres(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
+            SyncError::Redis(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
+            SyncError::Json(_) => (StatusCode::BAD_REQUEST, "Bad Request".to_string()),
+            SyncError::Other(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
         };
 
         // Return a JSON response or just a status code
@@ -36,7 +36,7 @@ impl IntoResponse for SyncError {
     }
 }
 
-#[derive(thiserror::Error, Debug)]                             //Never Used I am thinking so restricting Users Not implimented
+#[derive(thiserror::Error, Debug)]                             //Never Used I am thinking so restricting Users Not impliment
 pub enum AuthError {
     #[error("Unauthorized")]
     Unauthorized,
