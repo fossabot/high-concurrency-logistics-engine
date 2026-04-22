@@ -1,7 +1,8 @@
 # Real-Time Parcel Tracking System (Rust)
 
-> **Status: Work in Progress (WIP)** 🛠️
-> 
+STATUS: WORK IN PROGRESS
+
+
 > **Current Milestone:** Single-node optimization (10k Concurrent VUs achieved).
 > **Next Milestone:** Horizontal scaling with Nginx Load Balancer and Redis Cluster.
 
@@ -257,14 +258,16 @@ axum_api/
 │   ├── Cargo.toml
 │   ├── Dockerfile
 │   └── src/
+|       |--middleware/auth  <- Jwt token verification
 │       ├── main.rs         ← server startup, router, AppState
 │       ├── handlers/
-│       │   ├── ws.rs       ← driver WebSocket handler
+│       │   ├── ws.rs       ← driver WebSocket handler for driver
 │       │   ├── auth.rs     ← register, login, verify
 │       │   └── customer.rs ← customer live tracking handler
-│       ├── redis_bus/      ← Redis Stream, Lua scripts, consumer group
-│       └── models/         ← SQLx database models
-├── token-gen/              ← Ed25519 JWT token generator for load testing
+│       ├── bus/redis_bus/      ← Redis Stream, Lua scripts, consumer group
+│       └── models/          ← SQLx database models and State models
+        |___components/password  ← Ed25519 JWT token generator for load testing
+├── token-gen/                 
 │   ├── Cargo.toml
 │   └── src/
 │       └── main.rs
@@ -276,7 +279,7 @@ axum_api/
 ---
 
 ## Author
-
+Note: Git history was reset during a major directory restructuring/refactor on 21/04/2026."
 **Pramod S B**
 Backend Engineer — Real-time distributed systems in Rust
 Bengaluru, India
