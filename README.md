@@ -335,20 +335,24 @@ axum_api/
 │   ├── Cargo.toml
 │   ├── Dockerfile
 │   └── src/
+|       |--middleware/auth  <- Jwt token verification
 │       ├── main.rs         ← server startup, router, AppState
 │       ├── handlers/
-│       │   ├── ws.rs       ← driver WebSocket handler
+│       │   ├── ws.rs       ← driver WebSocket handler for driver
 │       │   ├── auth.rs     ← register, login, verify
 │       │   └── customer.rs ← customer live tracking handler
-│       ├── redis_bus/      ← Redis Stream, Lua scripts, consumer group
-│       └── models/         ← SQLx database models
-├── token-gen/              ← Ed25519 JWT token generator for load testing
+│       ├── bus/redis_bus/      ← Redis Stream, Lua scripts, consumer group
+│       └── models/          ← SQLx database models and State models
+        |___components/password  ← Ed25519 JWT token generator for load testing
+├── token-gen/                 
 │   ├── Cargo.toml
+|   |--Dockerfile
 │   └── src/
 │       └── main.rs
 └── loadtests/              ← k6 load test scripts
     ├── driver.js           ← driver WebSocket load test
-    └── customer.js         ← customer tracking load test
+    └── customer.js        ← customer tracking load test
+         token-output.txt   TOKENS Stored here
 ```
 
 ---
