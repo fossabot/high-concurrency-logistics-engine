@@ -36,7 +36,7 @@ At Every 20s Axum Api, Background Task runs which sends data from Redis Stream t
 
 Customer Device ---> Backend Axum Api ---> Check and create subscriber with redis if driver is availaible or not and send the last position to customer if the driver current location is not in the redis pubdub
 
-All this is protected by ED25519 keys
+Authentication is stateless via Ed25519-signed JWTs, validated at the Axum layer.
 
 Mistakes
 
@@ -50,20 +50,6 @@ Key Problems Ive faced is
 --Deleting after sending to Database was also quiet problematic when i used inbound redis ack and del
 
  
-
-## Tech Stack
-
-| Layer | Technology | Why |
-|---|---|---|
-| Language | Rust | Memory safety, zero GC, zero-cost abstractions |
-| Async Runtime | Tokio | Industry standard, precise timer control with Pin |
-| Web Framework | Axum | Ergonomic, Tokio-native, strong middleware support |
-| Auth | JWT + Ed25519 | Asymmetric, fast, stateless across WebSocket and REST |
-| Cache / Streams | Redis | Lua atomic ops, consumer groups, TTL session storage |
-| Database | PostgreSQL + SQLx | Type-safe queries, unnest batch inserts |
-| Observability | Prometheus + Grafana + Node Exporter | Full production metrics stack |
-| Containerization | Docker Compose | Linux kernel networking, health checks |
-| Load Testing | k6 + token-gen | Ed25519 signed tokens + WebSocket load testing |
 
 
 
