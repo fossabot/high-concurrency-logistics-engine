@@ -1,7 +1,8 @@
 # Real-Time Parcel Tracking System (Rust)
 
-> **Status: Work in Progress (WIP)** 🛠️
-> 
+STATUS: WORK IN PROGRESS
+
+
 > **Current Milestone:** Single-node optimization (10k Concurrent VUs achieved).
 > **Next Milestone:** Horizontal scaling with Nginx Load Balancer and Redis Cluster.
 
