@@ -64,12 +64,15 @@ Driver Device (GPS update every 2s)
 └──────────────┘  └────────────────────┘
 ```
 
+
+
+
 ---
 
 ## Key Engineering Decisions
 
 ### Ed25519 JWT Authentication
-All WebSocket upgrades and REST endpoints use JWT signed with **Ed25519** — an asymmetric algorithm chosen deliberately over the common HS256. Ed25519 is faster than RSA, produces smaller signatures, and is used by security-conscious systems like Cloudflare and Signal. The same token validates both REST and WebSocket layers without a separate session mechanism.
+I went with Ed25519 for the JWTs instead of the usual HS256. I wanted to separate the signing responsibility, and since it’s faster/smaller than RSA, it didn't kill my latency during the handshake.
 
 ### Atomic Deduplication with Redis Lua Scripts
 Before writing to the stream, the system checks the driver's last known position via `HGET`. This check and the subsequent `XADD` are wrapped in a **Lua script executed atomically server-side in Redis**. No race condition where two simultaneous updates both pass the check and both write to the stream. Exactly-once semantics at the ingestion layer.
@@ -350,7 +353,7 @@ axum_api/
 ---
 
 ## Author
-
+Note: Git history was reset during a major directory restructuring/refactor on 21/04/2026."
 **Pramod S B**
 Backend Engineer — Real-time distributed systems in Rust
 Bengaluru, India
