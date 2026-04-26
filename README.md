@@ -11,6 +11,7 @@ STATUS: SINGLE NODE COMPLETE
 **Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live tracking in real time.
 
 ---
+![Alt Text](assets/k6_results_c10k.png)
 
 ## The Problem
 
