@@ -3,12 +3,17 @@ services:
     build:
       context: .
       dockerfile: ./axum-api/Dockerfile
+    networks:
+      - redis-cluster-net
     image: parcel-app-trial:latest
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://postgres:mysecretpassword@postgres_db:5432/postgres
-      - REDIS_URL=redis://redis:6379
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - REDIS_URL=redis://redis-cluster:6379
       - RUST_LOG=info
       - PORT=8080
       - HOST=0.0.0.0
@@ -21,22 +26,23 @@ services:
         soft: 30000
         hard: 30000
     depends_on:
-      redis:
-        condition: service_healthy
+      redis-cluster-init:
+        condition: service_completed_successfully
       postgres_db:
         condition: service_healthy
+
   postgres_db:
     image: postgres:alpine
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=mysecretpassword
-      - POSTGRES_DB=postgres
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,22 +50,6 @@ services:
       nofile:
         soft: 1000
         hard: 1000
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    command: ["redis-server", "--maxclients", "20000"]
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    # Redis also needs high limits if handling 10000s of connections
-    ulimits:
-      nofile:
-        soft: 30000
-        hard: 30000
 
   k6-test:
     image: grafana/k6:latest
@@ -79,17 +69,15 @@ services:
   token-gen:
     build:
       context: .
-      dockerfile: ./token-gen/Dockerfile # Dockerfile that runs your Rust binary
+      dockerfile: ./token-gen/Dockerfile # Dockerfile that runs your generate tokens
     environment:
       - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
       - TOKEN_OUTPUT=${TOKEN_OUTPUT}
       - TOKEN_COUNT=${TOKEN_COUNT}
     volumes:
       - token-data:/loadtests
-    # Binary runs, writes token to /token-store/token.txt, and exits
+    # Binary runs, writes token to /loadtests/token.txt, and exits
     command: ["./token-gen", "--output", "/loadtests/token.txt"]
-
-  # ************** Observability Stack ************************************
 
   prometheus:
     image: prom/prometheus:latest
@@ -109,7 +97,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3001:3000" # moved to 3001 — 3000 is free for your API metrics endpoint if needed
+      - "3001:3000" # moved to 3001 — 3000
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
@@ -132,8 +120,212 @@ services:
       - "--path.sysfs=/host/sys"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
 
+  redis-node-1:
+    image: redis:7-alpine
+    ports:
+      - "7001:6379"
+      - "17001:16379" # cluster bus port (always node port + 10000)
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip redis-node-1
+      --cluster-announce-hostname redis-node-1
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --appendonly yes
+      --maxclients 20000
+    volumes:
+      - redis-node-1-data:/data
+    networks:
+      - redis-cluster-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-node-2:
+    image: redis:7-alpine
+    ports:
+      - "7002:6379"
+      - "17002:16379"
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip redis-node-2
+      --cluster-announce-hostname redis-node-2
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --appendonly yes
+      --maxclients 20000
+    volumes:
+      - redis-node-2-data:/data
+    networks:
+      - redis-cluster-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-node-3:
+    image: redis:7-alpine
+    ports:
+      - "7003:6379"
+      - "17003:16379"
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip redis-node-3
+      --cluster-announce-hostname redis-node-3
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --appendonly yes
+      --maxclients 20000
+    volumes:
+      - redis-node-3-data:/data
+    networks:
+      - redis-cluster-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-node-4:
+    image: redis:7-alpine
+    ports:
+      - "7004:6379"
+      - "17004:16379"
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip redis-node-4
+      --cluster-announce-hostname redis-node-4
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --appendonly yes
+      --maxclients 20000
+    volumes:
+      - redis-node-4-data:/data
+    networks:
+      - redis-cluster-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-node-5:
+    image: redis:7-alpine
+    ports:
+      - "7005:6379"
+      - "17005:16379"
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip redis-node-5
+      --cluster-announce-hostname redis-node-5
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --appendonly yes
+      --maxclients 20000
+    volumes:
+      - redis-node-5-data:/data
+    networks:
+      - redis-cluster-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-node-6:
+    image: redis:7-alpine
+    ports:
+      - "7006:6379"
+      - "17006:16379"
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip redis-node-6
+      --cluster-announce-hostname redis-node-6
+      --cluster-announce-port 6379
+      --cluster-announce-bus-port 16379
+      --appendonly yes
+      --maxclients 20000
+    volumes:
+      - redis-node-6-data:/data
+    networks:
+      - redis-cluster-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-cluster-init:
+    image: redis:7-alpine
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo 'Waiting for all nodes to be ready...' &&
+        sleep 5 &&
+        redis-cli --cluster create \
+        redis-node-1:6379 \
+        redis-node-2:6379 \
+        redis-node-3:6379 \
+        redis-node-4:6379 \
+        redis-node-5:6379 \
+        redis-node-6:6379 \
+        --cluster-replicas 1 \
+        --cluster-yes &&
+        echo 'Cluster created successfully'
+    networks:
+      - redis-cluster-net
+    depends_on:
+      redis-node-1:
+        condition: service_healthy
+      redis-node-2:
+        condition: service_healthy
+      redis-node-3:
+        condition: service_healthy
+      redis-node-4:
+        condition: service_healthy
+      redis-node-5:
+        condition: service_healthy
+      redis-node-6:
+        condition: service_healthy
 volumes:
   postgres-data:
   token-data:
   prometheus-data:
   grafana-data:
+  redis-node-1-data:
+  redis-node-2-data:
+  redis-node-3-data:
+  redis-node-4-data:
+  redis-node-5-data:
+  redis-node-6-data:
+
+networks:
+  redis-cluster-net:
+    driver: bridge

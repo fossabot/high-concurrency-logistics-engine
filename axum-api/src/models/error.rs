@@ -2,6 +2,8 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use tokio::sync::mpsc;
+use crate::models::state::StreamEvent;
 
 #[derive(thiserror::Error, Debug)]
 pub enum SyncError {                    //Custom Error Types
@@ -14,8 +16,12 @@ pub enum SyncError {                    //Custom Error Types
     #[error("JSON failure: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[error("Stream failure: {0}")]
+    Stream(#[from] mpsc::error::SendError<StreamEvent>),
+
     #[error("{0}")]
     Other(String),
+
 }
 
 impl IntoResponse for SyncError {
@@ -29,6 +35,7 @@ impl IntoResponse for SyncError {
             SyncError::Redis(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
             SyncError::Json(_) => (StatusCode::BAD_REQUEST, "Bad Request".to_string()),
             SyncError::Other(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
+            SyncError::Stream(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
         };
 
         // Return a JSON response or just a status code

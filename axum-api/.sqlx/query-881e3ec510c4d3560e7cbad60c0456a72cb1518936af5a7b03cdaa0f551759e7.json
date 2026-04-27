@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO parcel_history\n            (parcel_id, driver_id, latitude, longitude,\n             timestamp, status)\n        SELECT * FROM UNNEST(\n            $1::text[],\n            $2::text[],\n            $3::float8[],\n            $4::float8[],\n            $5::bigint[],\n            $6::text[]\n        )\n        ON CONFLICT (parcel_id, timestamp) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "Float8Array",
+        "Float8Array",
+        "Int8Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "881e3ec510c4d3560e7cbad60c0456a72cb1518936af5a7b03cdaa0f551759e7"
+}

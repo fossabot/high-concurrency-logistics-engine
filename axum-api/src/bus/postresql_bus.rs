@@ -1,2 +1,1 @@
-use sqlx::PgPool;
-use crate::models::User;
+// Kept for Needing to improve other functions

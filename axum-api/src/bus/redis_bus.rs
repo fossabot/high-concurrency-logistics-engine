@@ -1,26 +1,30 @@
-use futures::stream::StreamExt;
-use redis::{Script, AsyncCommands, pipe};
-use std::sync::Arc;
-use crate::WORKER_ID;
+use futures::stream::{StreamExt, FuturesUnordered};
+use redis::{Script, AsyncCommands, pipe, streams:: {StreamRangeReply}};
+use std::{sync::Arc, collections::HashSet};
 use crate::models::error::SyncError;
-use crate::models::{user::User, state::AppState};
+use crate::models::{user::User, state::{AppState, StreamEvent}};
 use crate::models::location_user::LocationUpdate;
+use crate::components::batch_postgres::{parse_entry, insert_batch};
 /// Channel name convention: one channel per parcel
 fn channel(parcel_id: &str) -> String {
-    format!("channel:parcel:{parcel_id}")
+    format!("{{{parcel_id}}}:channel:parcel:")
 }
 
 /// Redis key for last known position hash
 fn position_key(parcel_id: &str) -> String {
-    format!("parcel:{parcel_id}")
+    format!("{{{parcel_id}}}:parcel")
 }
 
-fn geo_key() -> String {
-    format!("active_drivers")
+fn geo_key(parcel_id: &str) -> String {
+    format!("{{{parcel_id}}}:active_drivers")
 }
 
-fn history_key() -> String {
-    format!("parcel:history")
+fn history_key(parcel_id: &str) -> String {
+    format!("{{{parcel_id}}}:history")
+}
+
+fn stream_registry() -> String {
+    format!("parcel:global:stream_registry")
 }
 
 /// Publish a location update to Redis.
@@ -37,8 +41,8 @@ pub async fn publish(
 
     // Broadcast to all subscribers on this channel
     let _: () = pipe()
-        .publish(channel(parcel_id), payload)
-        .geo_add(geo_key(), (lat, lon, driver_id))
+        .spublish(channel(parcel_id), payload)
+        .geo_add(geo_key(parcel_id), (lat, lon, driver_id))
         .hset(position_key(parcel_id), "data", payload)// Persist last known position (customer joining late gets this immediately)
         .query_async(&mut conn)
         .await?;
@@ -65,59 +69,44 @@ pub async fn last_position(
 /// Subscribe to a parcel channel and fan-out into the in-process broadcast.
 /// Spawned once per parcel when the first customer connects.
 pub async fn subscribe_parcel(parcel_id: String, state: Arc<AppState>) {
-    let state_red = state.redis_client.clone();
-    let mut pubsub = match state_red.get_async_pubsub().await {
-           Ok(c) => c,
-           Err(e) => {
-               eprintln!("Redis connection error: {}", e);
-               return;
-           }
-       };
-
-    if let Err(e) = pubsub.subscribe(channel(&parcel_id)).await {
-        tracing::error!("Redis subscribe failed: {e}");
-        return;
-    }
-
-    tracing::info!("Redis subscriber started for parcel {parcel_id}");
-
-    let mut stream = pubsub.on_message();
-    loop {
-        match stream.next().await {
-            Some(msg) => {
-                let payload: String = match msg.get_payload() {
-                    Ok(p) => p,
-                    Err(_) => {
-                        tracing::warn!("Skipping malformed Redis payload");
-                        continue;
-                    },
-                };
-                let tx = state.channel_for(&parcel_id);
-                // No active WebSocket customers — clean up and stop
-                if tx.receiver_count() == 0 {
-                    state.parcels.remove_if(&parcel_id, |_, tx_entry| tx_entry.receiver_count() == 0);
-                    tracing::info!("No customers left for {parcel_id}, stopping subscriber");
-                    break;
-                }
-                if let Ok(_valid_data) = serde_json::from_str::<LocationUpdate>(&payload) {
-                    // Validation passed! Now pass the ORIGINAL string to the channel
-                    let _ = tx.send(payload);
-                } else {
-                    tracing::warn!("Discarding invalid payload: {}", payload);
-                }
+    let mut stream = state.redis_manager.clone();
+    let mut payload = Vec::new();
+    let result: redis::RedisResult<StreamRangeReply> = redis::cmd("XREVRANGE")
+                    .arg(&history_key(&parcel_id)).arg("+").arg("-").arg("COUNT").arg(1)
+                    .query_async(&mut stream).await;
+    if let Ok(entries)= result {
+        if let Some(entry) = entries.ids.first(){
+            let x = parse_entry(&entry);
+            if let Some(data)= x{
+                payload.push(data);
             }
-            None => break, // connection closed
         }
     }
+
+
+    let tx = state.channel_for(&parcel_id);
+    // No active WebSocket customers — clean up and stop
+    if tx.receiver_count() == 0 {
+        state.parcels.remove_if(&parcel_id, |_, tx_entry| tx_entry.receiver_count() == 0);
+        tracing::info!("No customers left for {parcel_id}, stopping subscriber");
+        return;
+    }
+    if let Some(update) = payload.first() {
+        if let Ok(json_string) = serde_json::to_string(update) {
+            let _ = tx.send(json_string);
+        }
+    }
+
 }
 
 /// Publish a message to the Redis stream for the given parcel after a delay
 pub async fn redis_stream_publish(state: &Arc<AppState>, parcel_id: &str) -> Result<(), SyncError> {
     let mut stream = state.redis_manager.clone();
+    let stream_tx = state.redis_channel.clone();
     let script = Script::new(r#"
         -- 1. Read from Hash internally (Atomic)
                local current_val = redis.call('HGET', KEYS[2], 'data')
-               if not current_val then return -1 end -- Hash not found
+               if  current_val == false then return -1 end -- Hash not found
 
                -- 2. Check Stream Tail
                local last_entry = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
@@ -131,22 +120,30 @@ pub async fn redis_stream_publish(state: &Arc<AppState>, parcel_id: &str) -> Res
                end
 
                -- 3. Write to Stream
-               redis.call('XADD', KEYS[1], '*', 'payload', current_val)
+               redis.call('XADD', KEYS[1], 'MAXLEN', '~', 1000,  '*' , 'payload', current_val)
                return 1
         "#
     );
     let result: i64 = script
-        .key(history_key()) // KEYS[1] = history
+        .key(history_key(parcel_id)) // KEYS[1] = history
         .key(position_key(parcel_id)) // KEYS[2] = position_key
         .invoke_async(&mut stream)
         .await?;
     if result == 0 {
+        tracing::debug!("Skipping duplicate history for {}", parcel_id);
         return Ok(());
     }
     else if result == -1 {
+        tracing::warn!("Position hash missing for {}", parcel_id);
         return Ok(());
     }
     else if result == 1 {
+        redis::cmd("SADD")
+                .arg(stream_registry())
+                .arg(history_key(parcel_id))
+                .query_async::<()>(&mut stream)
+                .await?;
+        stream_tx.send(StreamEvent::parcel_stream(&history_key(parcel_id))).await?;
         return Ok(());
     } else {
         return Ok(());
@@ -157,96 +154,38 @@ pub async fn redis_stream_publish(state: &Arc<AppState>, parcel_id: &str) -> Res
 }
 
 /// Send batch message from Redis stream to the postgres history table
-pub async fn redis_stream_to_postgres(state: &Arc<AppState>) -> Result<(), SyncError> {
-    let worker_id = WORKER_ID.get().expect("worker id not set");
-    tracing::info!("Start");
-    let mut stream = state.redis_manager.clone();
-    let stream_response: redis::streams::StreamReadReply = redis::cmd("XREADGROUP")
-        .arg("GROUP")
-        .arg("history-processor")
-        .arg(&worker_id)
-        .arg("COUNT")
-        .arg(10000)
-        .arg("BLOCK")
-        .arg(100)
-        .arg("STREAMS")
-        .arg(history_key()) // The Key
-        .arg(">")           // The ID
-        .query_async(&mut stream)
-        .await?;
-    let mut parcel_ids = Vec::new();
-    let mut driver_ids = Vec::new();
-    let mut latitudes = Vec::new();
-    let mut longitudes = Vec::new();
-    let mut timestamps = Vec::new();
-    let mut statuses = Vec::new();
-    if stream_response.keys.is_empty() {
-        tracing::warn!("no history entries found for in redis stream");
+pub async fn redis_stream_to_postgres(parcel_stream_keys: &mut HashSet<String>, state: &Arc<AppState>) -> Result<(), SyncError> {
+    let keys_vec: Vec<String> = parcel_stream_keys.drain().collect();
+    if keys_vec.is_empty() {
         return Ok(());
     }
+    let mut tasks = FuturesUnordered::new();
+    let mut finished_keys_vec = Vec::new();
+    let mut location_entries:Vec<LocationUpdate> = Vec::new();
+    for key in keys_vec{
+        let mut stream = state.redis_manager.clone();
+        tasks.push(async move{
+            let res: redis::RedisResult<StreamRangeReply> = redis::cmd("XREVRANGE")
+                            .arg(&key).arg("+").arg("-").arg("COUNT").arg(1)
+                            .query_async(&mut stream).await;
+            (key, res)
+        })
+    }
 
-    for stream_key in stream_response.keys {
-        let mut processed_ids = Vec::new();
-        for entry in stream_key.ids {
-            // 1. Get the payload as a String first
-            if let Some(val) = entry.map.get("payload") {
-                // This is the "Best Way" to use FromRedisValue
-                let json_str: String = redis::from_redis_value(val.clone()).unwrap_or_default();
-
-                // 2. Immediately turn that string into your Rust Struct
-                if let Ok(update) = serde_json::from_str::<LocationUpdate>(&json_str) {
-                    parcel_ids.push(update.parcel_id);
-                    driver_ids.push(update.driver_id);
-                    latitudes.push(update.latitude);
-                    longitudes.push(update.longitude);
-                    timestamps.push(update.timestamp as i64);// sqlx cannot take Vec<u64>
-                    statuses.push(format!("{:?}", update.status));
-                    processed_ids.push(entry.id);
+    while let Some((key, result )) = tasks.next().await {
+        finished_keys_vec.push(key);
+        if let Ok(entries)= result {
+            if let Some(entry) = entries.ids.first(){
+                let x = parse_entry(&entry);
+                if let Some(data)= x{
+                    location_entries.push(data);
                 }
             }
         }
-        if !processed_ids.is_empty() {
-            // Manually build the command: XACKDEL <key> <group> <ID>
-            // Note: XACKDEL syntax is: XACKDEL key group id [id ...]
-            // 1. Acknowledge (XACK) - Tells Redis the group is done with these
-            let _: i32 = redis::cmd("XACK")
-                .arg(history_key())
-                .arg("history-processor")
-                .arg(&processed_ids) // This can be a Vec of IDs
-                .query_async(&mut stream)
-                .await?;
-
-            // 2. Delete (XDEL) - Removes the actual data from the stream
-            let result: i32 = redis::cmd("XDEL")
-                .arg(history_key())
-                .arg(&processed_ids)
-                .query_async(&mut stream)
-                .await?;
-            // result will be:
-              //  1: Acknowledged and deleted
-              // -1: ID not found
-              //  2: Acknowledged but not deleted (if other groups still need it)
-              tracing::info!(processed_ids = %processed_ids[0], result = %result, "XACKDEL result for {}: {}", processed_ids[0], result);
-        }
     }
+        insert_batch(&state.pool, &location_entries).await?;
 
-    if !parcel_ids.is_empty() {
-        sqlx::query!(
-            r#"
-            INSERT INTO parcel_history (parcel_id, driver_id, latitude, longitude, timestamp, status)
-             SELECT u.p_id, u.d_id, u.lat, u.lon, u.ts, u.status
-             FROM UNNEST($1::text[], $2::text[], $3::float[], $4::float[], $5::bigint[], $6::text[]) AS u(p_id, d_id, lat, lon, ts, status)"#,
-             &parcel_ids as &[String], // Rust knows this must be a Vec<String>
-             &driver_ids as &[String],  // If types don't match the DB, it won't compile
-             &latitudes as &[f64],
-             &longitudes as &[f64],
-             &timestamps ,
-             &statuses as &[String],
-        )
-        .execute(&state.pool)
-        .await?;
-        tracing::info!("Inserted {:?} parcel history entries", parcel_ids);
-    }
+        tracing::info!("Batching Postgres Success ");
 
     Ok(())
 }

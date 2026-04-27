@@ -8,4 +8,8 @@ CREATE TABLE IF NOT EXISTS parcel_history (
     longitude FLOAT NOT NULL,
     timestamp BIGINT NOT NULL,
     status TEXT NOT NULL
+
 );
+
+ALTER TABLE parcel_history
+ADD CONSTRAINT unique_parcel_time UNIQUE (parcel_id, timestamp);

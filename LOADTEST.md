@@ -281,7 +281,6 @@ A passing run shows all thresholds with ✓.
 
     ws_errors
     ✓ 'count<100' count=0
-                                                          LOAD TEST WITH 10000
 
   █ TOTAL RESULTS
 

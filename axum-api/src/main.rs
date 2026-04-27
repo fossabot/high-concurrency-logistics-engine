@@ -15,15 +15,17 @@ mod middlewares;
 use dotenvy::dotenv;
 use handlers::{login::login_handler, register::register_handler, ws::ws_handler, customer::customer_handler, verify::verify_handler};
 use middlewares::auth::auth_middleware;
-use models::state::AppState;
+use models::state::{AppState, StreamEvent};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use bus::redis_bus;
-use redis::aio::ConnectionManager;
+use components::background::background_to_postgres;
+use redis::cluster::ClusterClient;
 use lettre::{transport::smtp::authentication::Credentials, AsyncSmtpTransport, Tokio1Executor};
-use axum_prometheus::PrometheusMetricLayer;
+use axum_prometheus::{PrometheusMetricLayer, metrics_exporter_prometheus};
 use jsonwebtoken::{EncodingKey, DecodingKey};
 use components::password::check_ed_keys;
+use tokio::sync::mpsc;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -49,10 +51,13 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env");
+    let postgres_name = std::env::var("POSTGRES_USER").expect("POSTGRES_USERNAME must be set in .env");
+    let postgres_password = std::env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set in .env");
+    let postgres_db = std::env::var("POSTGRES_DB").expect("POSTGRES_DB must be set in .env");
+    let postgres_host = std::env::var("POSTGRES_HOST").expect("POSTGRES_HOST must be set in .env");
+    let database_url = format!("postgres://{}:{}@{}:5432/{}", postgres_name, postgres_password, postgres_host, postgres_db  );
     let smtp_username = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME must be set in .env");
     let smtp_password = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD must be set in .env");
-    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL must be set in .env");
     let id = format!("worker-{}", uuid::Uuid::new_v4());
     WORKER_ID.set(id).expect("failed to set worker id");
     tracing::info!("Worker ID: {}", WORKER_ID.get().unwrap());
@@ -68,8 +73,9 @@ async fn main() {
         .await
         .expect("migrations failed");
     //run redis connection
-    let redis_client = redis::Client::open(redis_url).expect("failed to connect to redis");
-    let redis_manager: ConnectionManager = ConnectionManager::new(redis_client.clone()).await.expect("failed to get redis connection");
+    let nodes = vec!["redis://redis-node-1:6379", "redis://redis-node-2:6379", "redis://redis-node-3:6379"];
+    let redis_client = ClusterClient::new(nodes).expect("failed to connect to redis cluster ");
+    let redis_manager = redis_client.get_async_connection().await.expect("failed to get redis connection");
     let _: () = redis::cmd("XGROUP")
             .arg("CREATE")
             .arg("parcel:history")      // The stream name
@@ -94,7 +100,11 @@ async fn main() {
         .port(587)
         .build();
     // prometheus metrics
-    let (prometheus_layer, metric_handler) = PrometheusMetricLayer::pair();
+    let (prometheus_layer, metric_handle) = axum_prometheus::PrometheusMetricLayer::pair();
+
+    // 2. CRITICAL: Register the handle as the GLOBAL recorder
+    // This ensures metrics::counter! in your other files actually sends data here
+
 
     tracing::info!("App token");
     // JWT keys
@@ -105,27 +115,29 @@ async fn main() {
     let jwt_encoding_key = EncodingKey::from_ed_der(&priv_bytes);
     let jwt_decoding_key = DecodingKey::from_ed_der(&pub_bytes);
 
+    let (stream_tx, stream_rx) = mpsc::channel::<StreamEvent>(10000);
+
     //running the all connection through Appstate
-    let state = Arc::new(AppState::new(redis_manager, redis_client, pool, mailer, jwt_encoding_key, jwt_decoding_key).await);
+    let state = Arc::new(AppState::new(redis_manager, pool, mailer, jwt_encoding_key, jwt_decoding_key, stream_tx).await);
     let background_state = state.clone();
+
+
 
 
     tracing::info!("App started");
 
     tokio::spawn(async move { //use tokio::spawn to run the background task of moving from redis stream to postgres
             // Using a 5-minute interval
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(25));
-            loop {
-                interval.tick().await;
-                if let Err(e) = redis_bus::redis_stream_to_postgres(&background_state).await {
+
+                if let Err(e) = background_to_postgres(&background_state, stream_rx).await {
                     tracing::error!("Background sync failed: {:?}", e);
+
                 }
-            }
     });
 
     let public_routes = Router::new()
         .route("/health", get(health))
-        .route("/metrics", get(move || async move { metric_handler.render() }))
+        .route("/metrics", get(move || async move { metric_handle.render() }))
         .route("/register", post(register_handler))
         .route("/login", post(login_handler))
         .route("/verify", post(verify_handler))

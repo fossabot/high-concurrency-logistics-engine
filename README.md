@@ -25,29 +25,11 @@ This system solves all four end to end.
 
 ---
 
-## Architecture
+- [Architecture Overview](ARCHITECTURE.md)
 
-```
-Driver Device (GPS update every 2s) Client --->  Backend Axum Api ---> Redis publish and Geoadd with HSET(Last Position)
+- [Architecture Decisions](DECISIONS.md)
 
-At Every 10s in Axum Api,  Redis Stream through matching with Last position using Lua Script to prevent deduplication
-
-At Every 20s Axum Api, Background Task runs which sends data from Redis Stream to Postgresql through Unnest
-
-Customer Device ---> Backend Axum Api ---> Check and create subscriber with redis if driver is availaible or not and send the last position to customer if the driver current location is not in the redis pubdub
-
-Authentication is stateless via Ed25519-signed JWTs, validated at the Axum layer.
-
-Mistakes
-
-I originally tried to write to Postgres every time a message came in, but the I/O killed the 1 CPU limit instantly. I moved to the 20s Unnest background task to let the DB breathe.
-Also Ephimeral ports were exhausted in windows due to time_wait so created docker compose for testing.
-
-Key Problems Ive faced is 
-
---Taking Consumer Group Streams to Postresql through UNNEST i.e., creating a temporary set of row against the columns: In this main problem i had was to parse the redis value to my struct and then send it to database.
-
---Deleting after sending to Database was also quiet problematic when i used inbound redis ack and del
+- [Mistakes](MISTAKES.md)
 
  
 
@@ -76,6 +58,7 @@ Key Problems Ive faced is
 ```json
 {
   "parcel_id": "parcel-123",
+  "driver_id": "driver-123",
   "latitude": 12.9716,
   "longitude": 77.5946,
   "timestamp": 1714123456,
@@ -244,18 +227,21 @@ axum_api/
 │   ├── Cargo.toml
 │   ├── Dockerfile
 │   └── src/
-|       |--middleware/auth  <- Jwt token verification
+|       ├── middleware/auth  <- Jwt token verification
 │       ├── main.rs         ← server startup, router, AppState
 │       ├── handlers/
 │       │   ├── ws.rs       ← driver WebSocket handler for driver
 │       │   ├── auth.rs     ← register, login, verify
 │       │   └── customer.rs ← customer live tracking handler
-│       ├── bus/redis_bus/      ← Redis Stream, Lua scripts, consumer group
-│       └── models/          ← SQLx database models and State models
-        |___components/password  ← Ed25519 JWT token generator for load testing
+│       ├── bus/redis_bus/   ← Redis Stream, Lua scripts, consumer group
+│       ├── models/          ← SQLx database models, custom error models and State models
+│       └──components  
+│              ├──password     ← Ed25519 JWT token generator for load testing
+│              ├──background   ← Batch operations running for postgres
+│              └──batch_postgres  ← Sqlx Unnest and parse StreamId to location update
 ├── token-gen/                 
 │   ├── Cargo.toml
-|   |--Dockerfile
+|   ├──Dockerfile
 │   └── src/
 │       └── main.rs
 └── loadtests/              ← k6 load test scripts

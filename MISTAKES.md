@@ -1,0 +1,9 @@
+- Using RSA for verification and testing causing my CPU to spike.
+- Not proper port mapping of the redis nodes in the redis cluster.
+- Tried to use StreamReadReply for my XREVRANGE of redis causing to get the result but could not parse properly as it was returned by redis due to which my postgres batch logic data was mot storing anything making the debug quite tedious as the error could not be found by rust compiler.
+- I used XREAD to try to get all the data in one iteration but my data was stored in different nodes causing CROSSLOT error.
+- Realising I do not need to send customer every 2 second update rather 5 second from the stream.
+- parsing data from Redis was difficult as payload was  in map of StreamId inside StreamKeys which was inside StreamRangeReply which can confusion.
+- Mistake used format! for making a struct as string for serialization of json.
+- unknowingly used std::sync::mpsc cause app to crash.
+- Ephimeral ports were exhausted in windows due to time_wait so created docker compose for testing.

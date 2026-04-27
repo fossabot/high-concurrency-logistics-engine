@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct LocationUpdate {
     pub parcel_id: String,
     pub driver_id: String,
     pub latitude: f64,
     pub longitude: f64,
-    pub timestamp: u64,
+    pub timestamp: i64,
     pub status: DriverStatus,
 }
 

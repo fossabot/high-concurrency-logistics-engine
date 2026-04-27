@@ -1,6 +1,6 @@
 use dashmap::DashMap;
-use redis::{aio::ConnectionManager, Client};
-use tokio::sync::broadcast;
+use redis::cluster_async::ClusterConnection;
+use tokio::sync::{broadcast, mpsc};
 use sqlx::PgPool;
 use lettre::{AsyncSmtpTransport, Tokio1Executor};
 use jsonwebtoken::{EncodingKey, DecodingKey};
@@ -10,25 +10,25 @@ use jsonwebtoken::{EncodingKey, DecodingKey};
 /// Customers subscribe to this; the Redis listener feeds it.
 #[derive(Clone)]
 pub struct AppState {
-    pub redis_manager : ConnectionManager,
-    pub redis_client: Client,
+    pub redis_manager : ClusterConnection,
     pub mailer: AsyncSmtpTransport<Tokio1Executor>,
     pub pool: PgPool,
     pub parcels: DashMap<String, broadcast::Sender<String>>,/// parcel_id → sender for that parcel's location stream
     pub jwt_encoding_key: EncodingKey,
     pub jwt_decoding_key: DecodingKey,
+    pub redis_channel: mpsc::Sender<StreamEvent>,
 }
 
 impl AppState {
-    pub async fn new(redis_manager: ConnectionManager, redis_client: redis::Client, pool: PgPool, mailer: AsyncSmtpTransport<Tokio1Executor>, jwt_encoding_key: EncodingKey, jwt_decoding_key: DecodingKey) -> Self {
+    pub async fn new(redis_manager: ClusterConnection, pool: PgPool, mailer: AsyncSmtpTransport<Tokio1Executor>, jwt_encoding_key: EncodingKey, jwt_decoding_key: DecodingKey, redis_channel: mpsc::Sender<StreamEvent>) -> Self {
         Self {
             redis_manager,
-            redis_client,
             mailer,
             pool,
             parcels: DashMap::new(),
             jwt_encoding_key,
             jwt_decoding_key,
+            redis_channel,
         }
     }
 
@@ -38,5 +38,39 @@ impl AppState {
             .entry(parcel_id.to_string())
             .or_insert_with(|| broadcast::channel::<String>(32).0)
             .clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StreamEvent {
+    ParcelStream {
+        stream_key: String,
+    },
+    ParcelDelivered {
+        parcel_id: String,
+    },
+}
+
+impl StreamEvent {
+    pub fn parcel_stream(stream_key: &str) -> Self {
+        Self::ParcelStream {
+            stream_key: stream_key.to_string(),
+        }
+    }
+    pub fn parcel_stream_duplicate(stream_key: &str) -> Self {
+        Self::ParcelStream {
+            stream_key: stream_key.to_string(),
+        }
+    }
+    pub fn parcel_delivered(parcel_id: &str) -> Self {
+        Self::ParcelDelivered {
+            parcel_id: parcel_id.to_string(),
+        }
+    }
+    pub fn parcel_stream_key(&self) -> Option<&str> {
+        match self {
+            Self::ParcelStream { stream_key } => Some(stream_key.as_str()),
+            _ => None,
+        }
     }
 }

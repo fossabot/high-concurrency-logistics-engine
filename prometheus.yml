@@ -3,8 +3,10 @@ global:
   evaluation_interval: 5s
 
 scrape_configs:
-  # Your Rust API — axum-prometheus exposes /metrics at port 8080
+  #  axum-prometheus exposes /metrics at port 8080
   - job_name: "axum-api"
+    scrape_interval: 15s # Increased to give the CPU some breathing room
+    scrape_timeout: 14s # Increased from the 10s default
     static_configs:
       - targets: ["axum-api:8080"]
     metrics_path: "/metrics"

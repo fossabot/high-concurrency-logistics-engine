@@ -4,6 +4,7 @@ use crate::AppState;
 use axum::extract::State;
 use jsonwebtoken::{ Validation, Algorithm, decode};
 use crate::models::login_user::Claims;
+use metrics;
 
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
@@ -37,12 +38,18 @@ pub async fn auth_middleware(
                 })
         })
         .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    let start = std::time::Instant::now();
+
     let mut validation = Validation::new(Algorithm::EdDSA);
     validation.set_audience(&["parcel-api"]);           // Restrict token usage to this API
     let _ = decode::<Claims>(&token, &state.jwt_decoding_key, &validation).map_err(|e| {
         tracing::warn!("token decode error: {:?}", e);
         StatusCode::UNAUTHORIZED
     })?;
+
+    // In Grafana, you'll see this in microseconds/milliseconds
+    metrics::histogram!("jwt_sign_duration_seconds").record(start.elapsed().as_secs_f64());
 
 
     Ok(next.run(req).await)
