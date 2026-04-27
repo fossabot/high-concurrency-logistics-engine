@@ -23,6 +23,8 @@ Parcel delivery platforms have a hard real-time problem:
 
 This system solves all four end to end.
 
+![Architecture Diagram](assets/first_test_rediscluster_k6_results.png)
+
 ---
 
 - [Architecture Overview](ARCHITECTURE.md)
