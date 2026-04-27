@@ -6,7 +6,7 @@ STATUS: SINGLE NODE COMPLETE
 > **Current Milestone:** Single-node optimization (10k Concurrent VUs achieved).
 > **Next Milestone:** Horizontal scaling with Nginx Load Balancer and Redis Cluster.
 
-> A production-grade distributed backend for live courier tracking, built in Rust. Handles **10,000 concurrent WebSocket connections** with **100% success rate**, **6.35ms average connection time**, on **under1 CPU cores** and **under1GB RAM** — entire stack included.
+> A production-grade distributed backend for live courier tracking, built in Rust. Handles **10,000 concurrent WebSocket connections** with **100% success rate**, **6.35ms average connection time**, on **under1 CPU cores** and **under1GB RAM** — only my backend stack included.
 
 **Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live tracking in real time.
 
