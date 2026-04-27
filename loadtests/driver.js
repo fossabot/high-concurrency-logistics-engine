@@ -24,7 +24,7 @@ const START_LNG = 77.5946;
 export const options = {
   stages: [
     { duration: "2m", target: 2000 }, // Slow start
-    { duration: "5m", target: 10000 }, // Gentle climb (33 conn/sec)
+    { duration: "5m", target: 10000 }, // Gentle climb
     { duration: "5m", target: 10000 }, // Soak test (the real stability check)
     { duration: "3m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
   ], // cool down

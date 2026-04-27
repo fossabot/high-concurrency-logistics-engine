@@ -61,18 +61,10 @@ Tokens are pre-generated once per test run. Each VU picks `tokens[(VU_ID - 1) % 
 
 ```javascript
 stages: [
-  { duration: "30s",  target: 1000  },  // warm up
-  { duration: "60s",  target: 3000  },  // ramp
-  { duration: "60s",  target: 5000  },  // build
-  { duration: "60s",  target: 7000  },  // push
-  { duration: "90s",  target: 9000  },  // slow push
-  { duration: "90s",  target: 11000 },  // approach peak
-  { duration: "90s",  target: 13000 },  // near peak
-  { duration: "90s",  target: 15000 },  // peak
-  { duration: "300s", target: 15000 },  // hold 5 minutes
-  { duration: "120s", target: 8000  },  // step down
-  { duration: "120s", target: 3000  },  // step down
-  { duration: "60s",  target: 0     },  // cool down
+  { duration: "2m", target: 2000 }, // Slow start
+  { duration: "5m", target: 10000 }, // Gentle climb
+  { duration: "5m", target: 10000 }, // Soak test (the real stability check)
+  { duration: "3m", target: 0 }, // Slow ramp down to avoid a "disconnect storm 
 ],
 ```
 
@@ -80,7 +72,7 @@ Total test duration: approximately 18 minutes.
 
 ---
 
-## Results at 10,000 Concurrent VUs
+## Results at 10,000 Concurrent VUs 
 
 ```
 ✓ ack ok
