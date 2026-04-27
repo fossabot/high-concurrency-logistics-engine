@@ -72,8 +72,9 @@ This system solves all four end to end.
 
 ## Load Test Results
 
-> Full methodology, stages, and raw output for the cluster test: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
-> Full methodology, stages, and raw output for the cluster test: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
+> Full methodology, stages, and raw output with the cluster test: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
+
+> Full methodology, stages, and raw output with the singleredis node test: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
 
 
 
