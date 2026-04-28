@@ -3,8 +3,8 @@
 STATUS: Single-Backend with Redis Cluster and Postgresql
 
 
-> **Current Milestone:** Single-node optimization (10k Concurrent VUs achieved).
-> **Next Milestone:** Horizontal scaling with Nginx Load Balancer and Redis Cluster.
+> **Current Milestone:** Single-node backend with Redis Cluster optimization (10k Concurrent VUs achieved).
+> **Next Milestone:** Horizontal scaling with Nginx Load Balancer.
 
 > A production-grade distributed backend for live courier tracking, built in Rust. Handles **10,000 concurrent WebSocket connections** with **100% success rate**, **6.35ms average connection time**, on **under 1 CPU cores** and **under 2GB RAM** — entire stack included.
 
