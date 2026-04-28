@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use axum::extract::ws::Message;
 use tokio::time::{sleep, Duration};
-use crate::redis_bus;
+use crate::bus::redis_bus;
 use axum::extract::{ws::WebSocketUpgrade, State};
 use crate::models::state::AppState;
 use axum::extract::Query;

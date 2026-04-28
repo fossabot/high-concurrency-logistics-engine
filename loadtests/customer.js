@@ -42,6 +42,7 @@ export default function () {
   const vuId = __VU;
   const parcelId = `parcel-${(vuId % 1000) + 1}`;
   let tick = 0;
+  const startTime = Date.now();
   // Pick pre-generated Ed25519 token — signed with same key as axum API
   const token = tokens[(vuId - 1) % tokens.length];
 
@@ -73,7 +74,7 @@ export default function () {
           check(msg, {
             "is valid location update": (m) =>
               m.latitude !== undefined && m.longitude !== undefined,
-            "correct driver id": (m) => m.driver_id !== undefined,
+            "correct parcel id": (m) => m.parcel_id !== parcelId,
           });
           locationUpdatesReceived.add(1);
         } catch (e) {

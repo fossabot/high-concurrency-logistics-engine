@@ -14,7 +14,7 @@ Tool: [k6](https://k6.io/)
 | Duration | 15 minutes |
 | Driver update interval | Every 2 seconds |
 | Thresholds | location_updates_sent > 10,000 AND ws_errors < 100 |
-| Hardware | Windows laptop, Docker Desktop, under 1 CPU core, under 1GB RAM |
+| Hardware | Windows laptop, Docker Desktop, under 1 CPU core, under 2GB RAM |
 
 ---
 
@@ -180,3 +180,77 @@ FuturesUnordered continued polling remaining nodes. No cascading failure.**
 
 Zero WebSocket errors across all four tests.  
 System survived a Redis node failure mid-test with no ws_errors and automatic recovery.
+
+
+## Test 5 — Full End-to-End (Drivers + Customers simultaneous)
+
+14,000 VUs across two scenarios. Validates both throughput 
+and correctness — customers verified to receive updates 
+from their correct driver only.
+
+![Customer and Driver test](../assets/customer_and_driver_load_test.png)
+
+
+ █ THRESHOLDS
+
+    location_updates_received{scenario:customers}
+    ✓ 'count>10000' count=36114
+
+    location_updates_sent{scenario:drivers}
+    ✓ 'count>10000' count=1178210
+
+    ws_connecting
+    ✓ 'p(95)<30' p(95)=9.7ms
+
+    ws_errors{scenario:customers}
+    ✓ 'count<100' count=0
+
+    ws_errors{scenario:drivers}
+    ✓ 'count<100' count=0
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 1498616 1627.195415/s
+    checks_succeeded...: 99.99%  1498605 out of 1498616
+    checks_failed......: 0.00%   11 out of 1498616
+
+    ✓ ack ok
+    ✓ is valid location update
+    ✓ correct driver id
+    ✗ WebSocket connected (101)
+      ↳  99% — ✓ 45670 / ✗ 11
+
+    CUSTOM
+    location_updates_received...: 36114   39.212537/s
+      { scenario:customers }....: 36114   39.212537/s
+    location_updates_sent.......: 1178210 1279.298973/s
+      { scenario:drivers }......: 1178210 1279.298973/s
+
+    EXECUTION
+    iteration_duration..........: avg=2m36s         min=1.06ms   med=2m0s   max=3m45s  p(90)=3m45s  p(95)=3m45s
+    iterations..................: 45681   49.600374/s
+    vus.........................: 42      min=0         max=14000
+    vus_max.....................: 14000   min=10936     max=14000
+
+    NETWORK
+    data_received...............: 41 MB   44 kB/s
+    data_sent...................: 235 MB  255 kB/s
+
+    WEBSOCKET
+    ws_connecting...............: avg=10.46ms       min=868.96µs med=3.89ms max=30s    p(90)=7.1ms  p(95)=9.7ms
+    ws_connection_duration_ms...: avg=115984.830757 min=109993   med=119996 max=135638 p(90)=120000 p(95)=120001
+    ws_errors...................: 0       0/s
+      { scenario:customers }....: 0       0/s
+      { scenario:drivers }......: 0       0/s
+    ws_msgs_received............: 1416822 1538.38359/s
+    ws_msgs_sent................: 1308976 1421.284536/s
+    ws_session_duration.........: avg=1m55s         min=913.52µs med=2m0s   max=2m15s  p(90)=2m0s   p(95)=2m0s
+    ws_sessions.................: 56882   61.762406/s
+
+
+
+
+running (15m21.0s), 00000/14000 VUs, 45680 complete and 11202 interrupted iterations
+drivers   ✓ [======================================] 0000/7000 VUs  15m0s
+customers ✓ [======================================] 0000/7000 VUs  14m0s

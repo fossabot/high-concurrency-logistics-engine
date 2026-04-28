@@ -3,10 +3,10 @@ use argon2::{Argon2, PasswordVerifier};
 use axum::{
     extract::State, http::header::SET_COOKIE, http::StatusCode, response::IntoResponse, Json,
 };
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
 use time::{Duration, OffsetDateTime};
 use std::sync::Arc;
-use crate::AppState;
+use crate::models::state::AppState;
 use crate::models::login_user::Claims;
 
 
@@ -20,7 +20,7 @@ fn create_token(user: User, encoding_key: &EncodingKey) -> Result<impl IntoRespo
         aud: "parcel-api".to_string(), //for restricting token usage to this API
     };
     let token = encode(
-        &Header::default(),
+        &Header::new(Algorithm::EdDSA),
         &claims,
         encoding_key,
     )

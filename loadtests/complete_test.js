@@ -12,6 +12,7 @@ const tokens = new SharedArray("driver_tokens", function () {
 const wsErrors = new Counter("ws_errors");
 const locationUpdatesSent = new Counter("location_updates_sent");
 const connectionDuration = new Trend("ws_connection_duration_ms");
+const locationUpdatesReceived = new Counter("location_updates_received");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const BASE_URL = __ENV.BASE_URL || "ws://host.docker.internal:8080";
@@ -22,19 +23,42 @@ const START_LNG = 77.5946;
 
 // ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
-  stages: [
-    { duration: "2m", target: 2000 }, // Slow start
-    { duration: "5m", target: 10000 }, // Gentle climb
-    { duration: "5m", target: 10000 }, // Soak test (the real stability check)
-    { duration: "3m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
-  ], // cool down
-
+  scenarios: {
+    drivers: {
+      executor: "ramping-vus",
+      startVUs: 0,
+      stages: [
+        { duration: "2m", target: 2000 }, // Slow start
+        { duration: "6m", target: 8000 }, // Gentle climb
+        { duration: "4m", target: 8000 }, // Soak test (the real stability check)
+        { duration: "4m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
+      ], // cool down
+      exec: "driver_logic",
+    },
+    customers: {
+      executor: "ramping-vus",
+      startVUs: 0,
+      startTime: "1m",
+      stages: [
+        { duration: "2m", target: 2000 }, // Slow start
+        { duration: "6m", target: 8000 }, // Gentle climb
+        { duration: "4m", target: 8000 }, // Soak test (the real stability check)
+        { duration: "4m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
+      ], // cool down
+      exec: "customer_logic",
+    },
+  },
   thresholds: {
-    ws_errors: ["count<100"],
-    location_updates_sent: ["count>10000"],
+    "ws_errors{scenario:drivers}": ["count<100"],
+    "location_updates_sent{scenario:drivers}": ["count>10000"],
+
+    "ws_errors{scenario:customers}": ["count<100"],
+    "location_updates_received{scenario:customers}": ["count>10000"],
+
+    ws_connecting: ["p(95)<30"],
   },
 };
-// ─── Lat/lng drift — smooth curved path per driver ────────────────────────────
+
 function getStartPosition(vuId) {
   // Spread drivers across ~5km radius around Bangalore center
   const latOffset = (vuId % 100) * 0.0005;
@@ -44,6 +68,7 @@ function getStartPosition(vuId) {
     lng: START_LNG + lngOffset,
   };
 }
+// ─── Lat/lng drift — smooth curved path per driver ────────────────────────────
 
 function nextPosition(lat, lng, tick) {
   // sin/cos gives smooth direction change — simulates driving a curved route
@@ -56,7 +81,7 @@ function nextPosition(lat, lng, tick) {
 }
 
 // ─── Main VU ──────────────────────────────────────────────────────────────────
-export default function () {
+export function driver_logic() {
   const vuId = __VU;
   const driverId = `driver-${vuId}`;
   const parcelId = `parcel-${(vuId % 1000) + 1}`;
@@ -139,5 +164,66 @@ export default function () {
   sleep(115);
   check(res, {
     "WebSocket connected (101)": (r) => r.status === 101,
+  });
+}
+
+// ─── Main Second VU ──────────────────────────────────────────────────────────────────
+export function customer_logic() {
+  const vuId = __VU;
+  const parcelId = `parcel-${(vuId % 1000) + 1}`;
+  let tick = 0;
+  // Pick pre-generated Ed25519 token — signed with same key as axum API
+  const token = tokens[(vuId - 1) % tokens.length];
+  const startTime = Date.now();
+  const res = ws.connect(
+    `${BASE_URL}/customer?parcel_id=${parcelId}&role=customer`,
+    {
+      headers: {
+        Cookie: `token=${token}`,
+        Authorization: `Bearer ${token}`,
+      },
+    },
+    function (socket) {
+      socket.on("open", function () {
+        // 1. Randomize the first ping (JITTER)
+        // This prevents 10,000 users from pinging at the exact same millisecond
+        const initialDelay = Math.random() * 20;
+        console.log(`Initial delay: ${initialDelay}`);
+        socket.setInterval(
+          function () {
+            socket.send(JSON.stringify({ type: "ping" }));
+          },
+          25000 + Math.random() * 5000,
+        ); // Ping every 25-30 seconds
+      });
+      socket.on("message", function (data) {
+        console.log(`Raw message from server: ${data}`); // <--- ADD THIS
+        try {
+          const msg = JSON.parse(data);
+          check(msg, {
+            "is valid location update": (m) =>
+              m.latitude !== undefined && m.longitude !== undefined,
+            "correct parcel id": (m) => m.parcel_id === parcelId,
+          });
+          locationUpdatesReceived.add(1);
+        } catch (e) {
+          console.error(`Failed to parse JSON. Data was: ${data}`);
+        }
+      });
+      socket.on("error", function (e) {
+        wsErrors.add(1);
+        console.error(`VU ${vuId} error: ${e.error()}`);
+      });
+      socket.on("close", function () {
+        connectionDuration.add(Date.now() - startTime);
+      });
+      socket.setTimeout(function () {
+        socket.close();
+      }, 120000);
+    },
+  );
+
+  check(res, {
+    "WebSocket connected (101)": (r) => r && r.status === 101,
   });
 }

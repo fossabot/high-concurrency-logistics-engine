@@ -29,8 +29,6 @@ pub async fn check_ed_keys() -> (Vec<u8>, Vec<u8>) {
                env::set_var("JWT_PUBLIC_KEY", hex::encode(&pub_b));
                //  Print these once so you can copy them into your .env for next time
                println!("SAVE THESE TO YOUR .ENV:");
-               println!("JWT_PRIVATE_KEY={}", hex::encode(&priv_b));    //For ED private key printing only because testing
-               println!("JWT_PUBLIC_KEY={}", hex::encode(&pub_b));  //For ED public key printing only because testing
 
                (priv_b, pub_b)
            }

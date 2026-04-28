@@ -1,8 +1,8 @@
 use axum::{http::Request, http::{header,StatusCode}, middleware::Next, response::Response};
 use std::sync::Arc;
-use crate::AppState;
+use crate::models::state::AppState;
 use axum::extract::State;
-use jsonwebtoken::{ Validation, Algorithm, decode};
+use jsonwebtoken::{ Validation, Algorithm, decode, DecodingKey};
 use crate::models::login_user::Claims;
 use metrics;
 
@@ -41,16 +41,27 @@ pub async fn auth_middleware(
 
     let start = std::time::Instant::now();
 
-    let mut validation = Validation::new(Algorithm::EdDSA);
-    validation.set_audience(&["parcel-api"]);           // Restrict token usage to this API
-    let _ = decode::<Claims>(&token, &state.jwt_decoding_key, &validation).map_err(|e| {
-        tracing::warn!("token decode error: {:?}", e);
-        StatusCode::UNAUTHORIZED
-    })?;
 
+    if let Err(e) = decode_jwt_token(&token, &state.jwt_decoding_key){
+        return Err(e)
+    }
     // In Grafana, you'll see this in microseconds/milliseconds
     metrics::histogram!("jwt_sign_duration_seconds").record(start.elapsed().as_secs_f64());
 
 
     Ok(next.run(req).await)
+}
+
+
+pub fn decode_jwt_token(token: &str, jwt_decoding_key: &DecodingKey) -> Result<Claims,StatusCode>{
+
+    let mut validation = Validation::new(Algorithm::EdDSA);
+    validation.set_audience(&["parcel-api"]);
+    decode::<Claims>(&token, &jwt_decoding_key, &validation)
+        .map(|data| data.claims)
+        .map_err(|e| {
+           tracing::warn!("token decode error: {:?}", e);
+           StatusCode::UNAUTHORIZED
+        })
+
 }

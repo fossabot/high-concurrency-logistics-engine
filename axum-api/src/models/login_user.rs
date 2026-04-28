@@ -8,7 +8,7 @@ pub struct LoginUser {
     pub password: String,
 }
 
-#[derive(Deserialize, Debug, Clone, FromRow, Serialize)]
+#[derive(Deserialize, Debug, Clone, FromRow, Serialize, PartialEq)]
 pub struct Claims {
     pub sub: String,
     pub role: UserRole,

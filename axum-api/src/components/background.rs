@@ -4,7 +4,7 @@ use crate::models::{state::StreamEvent, error::SyncError};
 use std::collections::HashSet;
 use tokio::time::{interval, Duration};
 use crate::bus::redis_bus::redis_stream_to_postgres;
-use crate::AppState;
+use crate::models::state::AppState;
 
 
 

@@ -5,6 +5,7 @@ services:
       dockerfile: ./axum-api/Dockerfile
     networks:
       - redis-cluster-net
+      - monitoring
     image: parcel-app-trial:latest
     ports:
       - "8080:8080"
@@ -39,6 +40,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     ports:
       - "5432:5432"
+    networks:
+      - monitoring
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -53,7 +56,9 @@ services:
 
   k6-test:
     image: grafana/k6:latest
-    profiles: ["test"] # This stops it from starting automatically
+    profiles: ["test"]
+    networks:
+      - monitoring # This stops it from starting automatically
     volumes:
       - ./loadtests:/scripts
       - token-data:/loadtests:ro
@@ -61,7 +66,7 @@ services:
       nofile:
         soft: 30000
         hard: 30000
-    command: run /scripts/driver.js
+    command: run /scripts/complete_test.js
     depends_on:
       token-gen:
         condition: service_completed_successfully
@@ -86,6 +91,8 @@ services:
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
+    networks:
+      - monitoring
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -98,6 +105,8 @@ services:
     image: grafana/grafana:latest
     ports:
       - "3001:3000" # moved to 3001 — 3000
+    networks:
+      - monitoring
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
@@ -111,6 +120,8 @@ services:
     image: prom/node-exporter:latest
     ports:
       - "9100:9100"
+    networks:
+      - monitoring
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -328,4 +339,6 @@ volumes:
 
 networks:
   redis-cluster-net:
+    driver: bridge
+  monitoring:
     driver: bridge
