@@ -299,7 +299,7 @@ services:
     command:
       - |
         echo 'Waiting for all nodes to be ready...' &&
-        sleep 5 &&
+        sleep 10 &&
         redis-cli --cluster create \
         redis-node-1:6379 \
         redis-node-2:6379 \

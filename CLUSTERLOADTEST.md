@@ -6,6 +6,11 @@ Tool: [k6](https://k6.io/)
 
 ---
 
+Note: driver update interval set to 2 seconds deliberately — 
+a more aggressive rate than production would typically require. 
+Increasing to 3 seconds would reduce message volume by ~33% 
+and allow higher concurrent VU counts within the same resource envelope.
+
 ## Test Conditions
 
 | Parameter | Value |
@@ -182,12 +187,17 @@ Zero WebSocket errors across all four tests.
 System survived a Redis node failure mid-test with no ws_errors and automatic recovery.
 
 
-## Test 5 — Full End-to-End (Drivers + Customers simultaneous)
+## Test 5 — Full End-to-End Correctness (16,000 VUs)
 
-14,000 VUs across two scenarios. Validates both throughput 
-and correctness — customers verified to receive updates 
-from their correct driver only.
+8,000 driver VUs + 8,000 customer VUs = 16,000 total concurrent connections.
+Customers verified to receive updates for their specific parcel only
+via `correct parcel id` check.
 
+ws_errors: 0 (both scenarios) | correct parcel id: ✓ | p(95) connect: 19.42ms
+99.99% checks passed — 53 failed out of 1,732,931
+Note: customers receive updates at 5 second intervals by design.
+Drivers send every 2 seconds but redundant positions are filtered
+at the Redis dedup layer before customer delivery.
 ![Customer and Driver test](../assets/customer_and_driver_load_test.png)
 
 

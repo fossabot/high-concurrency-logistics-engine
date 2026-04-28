@@ -33,7 +33,6 @@ This system solves all four end to end.
 
 - [Mistakes](MISTAKES.md)
 
- 
 
 
 
@@ -75,6 +74,15 @@ This system solves all four end to end.
 > Full methodology, stages, and raw output with the cluster test: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
 
 > Full methodology, stages, and raw output with the singleredis node test: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
+
+
+## Grafana Dashboard
+
+For 14000 VUs, 7000 Driver VUs and 7000 Customer VUs
+
+![Architecture Diagram](assets/customer_and_driver_load_test.png)
+
+[![Grafana Dashboard](images/grafana_dashboard.png)](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
 
 
 
@@ -151,6 +159,7 @@ cp .env.example .env
 # Edit .env — fill in SMTP credentials, leave JWT keys empty for now
 ```
 
+
 ### Step 2 — First Run (Generate JWT Keys)
 
 ```bash
@@ -160,13 +169,20 @@ docker compose up --build -d
 docker compose down
 ```
 
-### Step 3 — Full Run
+### Step 3 - Test
+
+```bash
+# Run Integration test of Backend to Ensure Everythings working
+docker compose exec axum-api cargo test
+```
+
+### Step 4 — Full Run
 
 ```bash
 docker compose up
 ```
 
-### Step 4 — Verify
+### Step 5 — Verify
 
 ```bash
 # Health check
@@ -180,7 +196,7 @@ open http://localhost:3001
 # Login: admin / admin
 ```
 
-### Step 5 — Run Load Tests
+### Step 6 — Run Load Tests
 
 ```bash
 # Generate 15,000 Ed25519 signed tokens
@@ -199,8 +215,11 @@ docker compose --profile --rm test run k6-test
 ### Local Development (without Docker)
 
 ```bash
-# Start Redis and Postgres via Docker
-docker compose up redis postgres_db
+# Start Redis Cluster and Postgres via Docker
+# NOTE: REMEMBER SETTING UP LOCALLY REQUIRES DEEP KNOWLEDGE OF ALL CONNECTIONS 
+# with same credentials as in .env or it will not connect
+# Remember to have configuration from deployment yaml or it wont works for ports and commands
+docker compose up redis postgres_db 
 
 #Create a TABLE in PostgreSQL
 sqlx migrate Run
@@ -230,6 +249,7 @@ axum_api/
 ├── axum-api/               ← main API
 │   ├── Cargo.toml
 │   ├── Dockerfile
+│   ├── tests/auth_test.rs
 │   └── src/
 |       ├── middleware/auth  <- Jwt token verification
 │       ├── main.rs         ← server startup, router, AppState
