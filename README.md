@@ -1,6 +1,5 @@
 # Real-Time Parcel Tracking System (Rust)
 
-PROTOTYPE ONLY
 
 STATUS: Single-Backend with Redis Cluster and Postgresql
 
