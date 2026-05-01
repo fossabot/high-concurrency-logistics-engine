@@ -71,8 +71,12 @@ impl User {
             created_at: OffsetDateTime::now_utc(),
             password: hash_password,
             role: cre.role.clone(),
-            driver_profile: DriverProfile { is_available: Some(false) },
-            customer_profile: CustomerProfile { default_address: None },
+            driver_profile: DriverProfile {
+                is_available: Some(false),
+            },
+            customer_profile: CustomerProfile {
+                default_address: None,
+            },
         }
     }
 }

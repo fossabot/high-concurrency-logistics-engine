@@ -1,11 +1,14 @@
-use lettre::{Message, AsyncTransport}; // AsyncTransport trait is required for .send()
-use std::sync::Arc;
 use crate::models::error::SyncError;
 use crate::models::state::AppState;
 use axum::http::StatusCode;
+use lettre::{AsyncTransport, Message}; // AsyncTransport trait is required for .send()
+use std::sync::Arc;
 
-
-pub async fn send_verification_email(state: Arc<AppState>, email: String, otp: &u32) -> Result<StatusCode, SyncError> {
+pub async fn send_verification_email(
+    state: Arc<AppState>,
+    email: String,
+    otp: &u32,
+) -> Result<StatusCode, SyncError> {
     let smtp_username = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME must be set in .env");
     // 1. Build the message
 

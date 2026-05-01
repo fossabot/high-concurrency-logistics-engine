@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::models::user::UserRole;
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(Deserialize, Debug, Clone)]

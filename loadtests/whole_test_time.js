@@ -12,55 +12,81 @@ const tokens = new SharedArray("driver_tokens", function () {
 const wsErrors = new Counter("ws_errors");
 const locationUpdatesSent = new Counter("location_updates_sent");
 const connectionDuration = new Trend("ws_connection_duration_ms");
+const locationUpdatesReceived = new Counter("location_updates_received");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || "ws://host.docker.internal:8080";
+const BASE_URL = "ws://host.docker.internal:80";
 
 // Bangalore bounding box
 const START_LAT = 12.9716;
 const START_LNG = 77.5946;
-
+const PARCEL_COUNT = 8000;
 // ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
-  stages: [
-    { duration: "2m", target: 2000 }, // Slow start
-    { duration: "5m", target: 15000 }, // Gentle climb
-    { duration: "2m", target: 15000 }, // Soak test (the real stability check)
-    { duration: "4m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
-  ], // cool down
-  gracefulStop: "245s", // Higher than your 240s iteration time
-  gracefulRampDown: "245s",
+  scenarios: {
+    drivers: {
+      executor: "ramping-vus",
+      startVUs: 0,
+      stages: [
+        { duration: "2m", target: 4000 }, // gentle start
+        { duration: "8m", target: 8000 }, // soak
+        { duration: "8m", target: 0 }, // ramp down
+      ], // cool down
+      gracefulStop: "245s", // Higher than your 240s iteration time
+      gracefulRampDown: "245s",
+      exec: "driver_logic",
+    },
+    customers: {
+      executor: "ramping-vus",
+      startVUs: 0,
+      startTime: "305s",
+      stages: [
+        { duration: "5m", target: 8000 },
+        { duration: "1m", target: 8000 },
+        { duration: "5m", target: 0 },
+      ], // cool down
+      gracefulStop: "245s", // Higher than your 240s iteration time
+      gracefulRampDown: "245s",
+      exec: "customer_logic",
+    },
+  },
   thresholds: {
-    ws_errors: ["count<100"],
-    location_updates_sent: ["count>10000"],
+    "ws_errors{scenario:drivers}": ["count<100"],
+    "location_updates_sent{scenario:drivers}": ["count>10000"],
+
+    "ws_errors{scenario:customers}": ["count<100"],
+    "location_updates_received{scenario:customers}": ["count>10000"],
+
+    ws_connecting: ["p(95)<30"],
   },
 };
-// ─── Lat/lng drift — smooth curved path per driver ────────────────────────────
+
 function getStartPosition(vuId) {
   // Spread drivers across ~5km radius around Bangalore center
   const latOffset = (vuId % 100) * 0.0005;
   const lngOffset = Math.floor(vuId / 100) * 0.0005;
   return {
-    lat: START_LAT + latOffset,
-    lng: START_LNG + lngOffset,
+    lat: Number((START_LAT + latOffset).toFixed(6)),
+    lng: Number((START_LNG + lngOffset).toFixed(6)),
   };
 }
+// ─── Lat/lng drift — smooth curved path per driver ────────────────────────────
 
 function nextPosition(lat, lng, tick) {
   // sin/cos gives smooth direction change — simulates driving a curved route
   const speed = 0.00005; // ~5m per 2s tick
   const angle = tick * 0.1; // direction rotates slowly
   return {
-    lat: lat + speed * Math.sin(angle),
-    lng: lng + speed * Math.cos(angle),
+    lat: Number((lat + speed * Math.sin(angle)).toFixed(6)),
+    lng: Number((lng + speed * Math.cos(angle)).toFixed(6)),
   };
 }
 
 // ─── Main VU ──────────────────────────────────────────────────────────────────
-export default function () {
+export function driver_logic() {
   const vuId = __VU;
   const driverId = `driver-${vuId}`;
-  const parcelId = `parcel-${(vuId % 15000) + 1}`;
+  const parcelId = `parcel-${(vuId % PARCEL_COUNT) + 1}`;
 
   // Pick pre-generated Ed25519 token — signed with same key as axum API
   const token = tokens[(vuId - 1) % tokens.length];
@@ -130,15 +156,78 @@ export default function () {
       // This ensures the VU doesn't die and the setInterval actually runs
       socket.setTimeout(function () {
         socket.close();
-      }, 110000); // 110 seconds (slightly less than your 120s server timeout)
+      }, 120000); // 110 seconds (slightly less than your 120s server timeout)
 
       socket.on("close", function () {
         connectionDuration.add(Date.now() - startTime);
       });
     },
   );
-  sleep(115);
+  sleep(60);
   check(res, {
     "WebSocket connected (101)": (r) => r.status === 101,
+  });
+}
+
+// ─── Main Second VU ──────────────────────────────────────────────────────────────────
+export function customer_logic() {
+  const vuId = __VU;
+  const parcelId = `parcel-${(vuId % PARCEL_COUNT) + 1}`;
+  let tick = 0;
+  // Pick pre-generated Ed25519 token — signed with same key as axum API
+  const token = tokens[(vuId - 1) % tokens.length];
+  const startTime = Date.now();
+  const res = ws.connect(
+    `${BASE_URL}/customer?parcel_id=${parcelId}&role=customer`,
+    {
+      headers: {
+        Cookie: `token=${token}`,
+        Authorization: `Bearer ${token}`,
+      },
+    },
+    function (socket) {
+      socket.on("open", function () {
+        // 1. Randomize the first ping (JITTER)
+        // This prevents 10,000 users from pinging at the exact same millisecond
+        const initialDelay = Math.random() * 20;
+        console.log(`Initial delay: ${initialDelay}`);
+        socket.setInterval(
+          function () {
+            socket.send(JSON.stringify({ type: "ping" }));
+          },
+          25000 + Math.random() * 5000,
+        ); // Ping every 25-30 seconds
+      });
+      socket.on("message", function (data) {
+        console.log(`Raw message from server: ${data}`); // <--- ADD THIS
+        try {
+          const msg = JSON.parse(data);
+          check(msg, {
+            "is valid location update": (m) =>
+              m.latitude !== undefined && m.longitude !== undefined,
+            "correct parcel id": (m) => m.parcel_id === parcelId,
+          });
+          locationUpdatesReceived.add(1);
+        } catch (e) {
+          console.error(`Failed to parse JSON. Data was: ${data}`);
+        }
+      });
+
+      socket.on("error", function (e) {
+        wsErrors.add(1);
+        console.error(`VU ${vuId} error: ${e.error()}`);
+      });
+      socket.on("close", function () {
+        connectionDuration.add(Date.now() - startTime);
+      });
+      socket.setTimeout(function () {
+        socket.close();
+      }, 120000);
+    },
+  );
+  sleep(50);
+
+  check(res, {
+    "WebSocket connected (101)": (r) => r && r.status === 101,
   });
 }

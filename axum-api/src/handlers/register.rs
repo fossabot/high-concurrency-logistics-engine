@@ -1,3 +1,7 @@
+use crate::bus::email_bus;
+use crate::bus::redis_bus;
+use crate::models::error::SyncError;
+use crate::models::state::AppState;
 use crate::models::user::{CreateUser, User};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
@@ -5,11 +9,7 @@ use argon2::{
 };
 use axum::{extract::State, http::StatusCode, Json};
 use sqlx::{self};
-use crate::bus::redis_bus;
 use std::sync::Arc;
-use crate::models::state::AppState;
-use crate::models::error::SyncError;
-use crate::bus::email_bus;
 
 pub async fn register_handler(
     State(state): State<Arc<AppState>>,
@@ -37,9 +37,7 @@ pub async fn register_handler(
     let otp: u32 = rand::random_range(100_000..999_999);
     redis_bus::publish_otp(&otp, &user, &state).await?;
     match email_bus::send_verification_email(state, email, &otp).await {
-        Ok(_) => {
-            Ok(StatusCode::OK)
-        }
+        Ok(_) => Ok(StatusCode::OK),
         Err(e) => {
             println!("Could not send email: {e}");
             return Err(SyncError::Other(e.to_string()));

@@ -1,15 +1,18 @@
-use std::sync::Arc;
-use axum::extract::ws::Message;
-use tokio::time::{sleep, Duration};
 use crate::bus::redis_bus;
-use axum::extract::{ws::WebSocketUpgrade, State};
-use crate::models::state::AppState;
-use axum::extract::Query;
 use crate::models::location_user::ConnectParams;
+use crate::models::state::AppState;
+use axum::extract::ws::Message;
+use axum::extract::Query;
+use axum::extract::{ws::WebSocketUpgrade, State};
 use axum::response::IntoResponse;
+use std::sync::Arc;
+use tokio::time::{sleep, Duration};
 
-
-pub async fn customer_handler(ws: WebSocketUpgrade, Query(params): Query<ConnectParams>, State(state): State<Arc<AppState>>) -> impl IntoResponse {
+pub async fn customer_handler(
+    ws: WebSocketUpgrade,
+    Query(params): Query<ConnectParams>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
     ws.on_upgrade(|mut socket| async move {
         if params.role.as_str() == "customer" {
             let parcel_id = params.parcel_id;
@@ -23,19 +26,24 @@ pub async fn customer_handler(ws: WebSocketUpgrade, Query(params): Query<Connect
 
             // Ensure a Redis subscriber task is running for this parcel
             let tx = state.channel_for(&parcel_id);
+            let value = parcel_id.clone();
             if tx.receiver_count() == 0 {
-                // First customer — spawn the Redis subscriber
-                tokio::spawn(redis_bus::subscribe_parcel(
-                    parcel_id.clone(),
-                    state
-                ));
+                         // First customer — spawn the Redis subscriber
+                         tracing::info!("Spawning subscribe_parcel for {}", parcel_id);
+                         tokio::spawn(redis_bus::subscribe_parcel(
+                             value.clone(),
+                             state
+                         ));
             }
+            let idle_timeout = sleep(Duration::from_secs(120));
+            tokio::pin!(idle_timeout);
             let mut rx = tx.subscribe();
 
             loop {
                 tokio::select! {
                     // Forward Redis messages to this customer's WebSocket
                     Ok(msg) = rx.recv() => {
+                        idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
                          tracing::info!("{parcel_id}: {msg}");
                         if socket.send(Message::Text(msg.into())).await.is_err() {
                             break; // customer disconnected
@@ -60,14 +68,12 @@ pub async fn customer_handler(ws: WebSocketUpgrade, Query(params): Query<Connect
                                 None => break, // Stream closed
                             }
                         }
-                _ = sleep(Duration::from_secs(60)) => {
-                           eprintln!("No message received for 60s, timing out.");
+                        _ =    &mut idle_timeout => {
+                           tracing::warn!("No message received for 120s, timing out.");
                            break;
                         }
                 }//tokio
             }//loop
         }//params
     })
-
-
 }

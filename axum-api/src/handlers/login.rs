@@ -1,15 +1,13 @@
-use crate::models::{login_user::LoginUser, user::User, error::AuthError};
+use crate::models::login_user::Claims;
+use crate::models::state::AppState;
+use crate::models::{error::AuthError, login_user::LoginUser, user::User};
 use argon2::{Argon2, PasswordVerifier};
 use axum::{
     extract::State, http::header::SET_COOKIE, http::StatusCode, response::IntoResponse, Json,
 };
-use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
-use time::{Duration, OffsetDateTime};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use std::sync::Arc;
-use crate::models::state::AppState;
-use crate::models::login_user::Claims;
-
-
+use time::{Duration, OffsetDateTime};
 
 fn create_token(user: User, encoding_key: &EncodingKey) -> Result<impl IntoResponse, AuthError> {
     let exp = OffsetDateTime::now_utc() + Duration::seconds(86400);
@@ -19,12 +17,7 @@ fn create_token(user: User, encoding_key: &EncodingKey) -> Result<impl IntoRespo
         exp: exp.unix_timestamp() as u64,
         aud: "parcel-api".to_string(), //for restricting token usage to this API
     };
-    let token = encode(
-        &Header::new(Algorithm::EdDSA),
-        &claims,
-        encoding_key,
-    )
-    .map_err(|e| {
+    let token = encode(&Header::new(Algorithm::EdDSA), &claims, encoding_key).map_err(|e| {
         tracing::error!("Failed to encode JWT token: {}", e);
         AuthError::InternalServerError
     })?;
@@ -52,20 +45,17 @@ pub async fn login_handler(
             match tokio::task::spawn_blocking(move || {
                 let parsed_password = argon2::password_hash::PasswordHash::new(&user.password)
                     .expect("Failed to parse password hash");
-                Argon2::default()
-                    .verify_password(login_user.password.as_bytes(), &parsed_password)
+                Argon2::default().verify_password(login_user.password.as_bytes(), &parsed_password)
             })
             .await
             {
-                Ok(_) => {
-                     match create_token(user_clone, &state.jwt_encoding_key) {
-                        Ok(response) => response.into_response(),
-                        Err(error) => error.into_response(),
-                    }
-                }
-                Err(_) =>  (StatusCode::UNAUTHORIZED, "Unauthorized").into_response(),
+                Ok(_) => match create_token(user_clone, &state.jwt_encoding_key) {
+                    Ok(response) => response.into_response(),
+                    Err(error) => error.into_response(),
+                },
+                Err(_) => (StatusCode::UNAUTHORIZED, "Unauthorized").into_response(),
             }
         }
-        Err(_) =>  (StatusCode::UNAUTHORIZED, "Unauthorized").into_response(),
+        Err(_) => (StatusCode::UNAUTHORIZED, "Unauthorized").into_response(),
     }
 }

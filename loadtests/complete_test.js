@@ -15,12 +15,12 @@ const connectionDuration = new Trend("ws_connection_duration_ms");
 const locationUpdatesReceived = new Counter("location_updates_received");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || "ws://host.docker.internal:8080";
+const BASE_URL = "ws://host.docker.internal:80";
 
 // Bangalore bounding box
 const START_LAT = 12.9716;
 const START_LNG = 77.5946;
-
+const PARCEL_COUNT = 8000;
 // ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
   scenarios: {
@@ -28,23 +28,25 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 0,
       stages: [
-        { duration: "2m", target: 2000 }, // Slow start
-        { duration: "6m", target: 8000 }, // Gentle climb
-        { duration: "4m", target: 8000 }, // Soak test (the real stability check)
-        { duration: "4m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
+        { duration: "5m", target: 8000 }, // gentle start
+        { duration: "8m", target: 8000 }, // soak
+        { duration: "5m", target: 0 }, // ramp down
       ], // cool down
+      gracefulStop: "245s", // Higher than your 240s iteration time
+      gracefulRampDown: "245s",
       exec: "driver_logic",
     },
     customers: {
       executor: "ramping-vus",
       startVUs: 0,
-      startTime: "1m",
+      startTime: "305s",
       stages: [
-        { duration: "2m", target: 2000 }, // Slow start
-        { duration: "6m", target: 8000 }, // Gentle climb
-        { duration: "4m", target: 8000 }, // Soak test (the real stability check)
-        { duration: "4m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
+        { duration: "5m", target: 8000 },
+        { duration: "2m", target: 8000 },
+        { duration: "5m", target: 0 },
       ], // cool down
+      gracefulStop: "245s", // Higher than your 240s iteration time
+      gracefulRampDown: "245s",
       exec: "customer_logic",
     },
   },
@@ -64,8 +66,8 @@ function getStartPosition(vuId) {
   const latOffset = (vuId % 100) * 0.0005;
   const lngOffset = Math.floor(vuId / 100) * 0.0005;
   return {
-    lat: START_LAT + latOffset,
-    lng: START_LNG + lngOffset,
+    lat: Number((START_LAT + latOffset).toFixed(6)),
+    lng: Number((START_LNG + lngOffset).toFixed(6)),
   };
 }
 // ─── Lat/lng drift — smooth curved path per driver ────────────────────────────
@@ -75,8 +77,8 @@ function nextPosition(lat, lng, tick) {
   const speed = 0.00005; // ~5m per 2s tick
   const angle = tick * 0.1; // direction rotates slowly
   return {
-    lat: lat + speed * Math.sin(angle),
-    lng: lng + speed * Math.cos(angle),
+    lat: Number((lat + speed * Math.sin(angle)).toFixed(6)),
+    lng: Number((lng + speed * Math.cos(angle)).toFixed(6)),
   };
 }
 
@@ -84,7 +86,7 @@ function nextPosition(lat, lng, tick) {
 export function driver_logic() {
   const vuId = __VU;
   const driverId = `driver-${vuId}`;
-  const parcelId = `parcel-${(vuId % 1000) + 1}`;
+  const parcelId = `parcel-${(vuId % PARCEL_COUNT) + 1}`;
 
   // Pick pre-generated Ed25519 token — signed with same key as axum API
   const token = tokens[(vuId - 1) % tokens.length];
@@ -154,14 +156,14 @@ export function driver_logic() {
       // This ensures the VU doesn't die and the setInterval actually runs
       socket.setTimeout(function () {
         socket.close();
-      }, 110000); // 110 seconds (slightly less than your 120s server timeout)
+      }, 180000); // 110 seconds (slightly less than your 120s server timeout)
 
       socket.on("close", function () {
         connectionDuration.add(Date.now() - startTime);
       });
     },
   );
-  sleep(115);
+  sleep(60);
   check(res, {
     "WebSocket connected (101)": (r) => r.status === 101,
   });
@@ -170,7 +172,7 @@ export function driver_logic() {
 // ─── Main Second VU ──────────────────────────────────────────────────────────────────
 export function customer_logic() {
   const vuId = __VU;
-  const parcelId = `parcel-${(vuId % 1000) + 1}`;
+  const parcelId = `parcel-${(vuId % PARCEL_COUNT) + 1}`;
   let tick = 0;
   // Pick pre-generated Ed25519 token — signed with same key as axum API
   const token = tokens[(vuId - 1) % tokens.length];
@@ -210,6 +212,7 @@ export function customer_logic() {
           console.error(`Failed to parse JSON. Data was: ${data}`);
         }
       });
+
       socket.on("error", function (e) {
         wsErrors.add(1);
         console.error(`VU ${vuId} error: ${e.error()}`);
@@ -219,9 +222,10 @@ export function customer_logic() {
       });
       socket.setTimeout(function () {
         socket.close();
-      }, 120000);
+      }, 180000);
     },
   );
+  sleep(120);
 
   check(res, {
     "WebSocket connected (101)": (r) => r && r.status === 101,

@@ -1,14 +1,15 @@
+use crate::models::state::StreamEvent;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use tokio::sync::mpsc;
-use crate::models::state::StreamEvent;
 
 #[derive(thiserror::Error, Debug)]
-pub enum SyncError {                    //Custom Error Types
+pub enum SyncError {
+    //Custom Error Types
     #[error("Redis failure: {0}")]
-    Redis(#[from] redis::RedisError),
+    Redis(#[from] fred::error::Error),
 
     #[error("Database failure: {0}")]
     Postgres(#[from] sqlx::Error),
@@ -21,7 +22,6 @@ pub enum SyncError {                    //Custom Error Types
 
     #[error("{0}")]
     Other(String),
-
 }
 
 impl IntoResponse for SyncError {
@@ -31,11 +31,23 @@ impl IntoResponse for SyncError {
 
         // Map your internal errors to external HTTP statuses
         let (status, error_message) = match self {
-            SyncError::Postgres(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
-            SyncError::Redis(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
+            SyncError::Postgres(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            ),
+            SyncError::Redis(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            ),
             SyncError::Json(_) => (StatusCode::BAD_REQUEST, "Bad Request".to_string()),
-            SyncError::Other(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
-            SyncError::Stream(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()),
+            SyncError::Other(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            ),
+            SyncError::Stream(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            ),
         };
 
         // Return a JSON response or just a status code
@@ -43,7 +55,7 @@ impl IntoResponse for SyncError {
     }
 }
 
-#[derive(thiserror::Error, Debug)]                             //Never Used I am thinking so restricting Users Not impliment
+#[derive(thiserror::Error, Debug)] //Never Used I am thinking so restricting Users Not impliment
 pub enum AuthError {
     #[error("Unauthorized")]
     Unauthorized,
@@ -60,7 +72,10 @@ impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
             AuthError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
-            AuthError::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            AuthError::InternalServerError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
             AuthError::IoError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "IO error".to_string()),
             AuthError::Expired => (StatusCode::UNAUTHORIZED, "Token expired".to_string()),
             AuthError::Missing => (StatusCode::UNAUTHORIZED, "Missing token".to_string()),

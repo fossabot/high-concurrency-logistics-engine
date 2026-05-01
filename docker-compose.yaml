@@ -1,14 +1,61 @@
 services:
-  axum-api:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - axum-api-1
+      - axum-api-2
+    networks:
+      - app-network
+
+  axum-api-1:
     build:
       context: .
       dockerfile: ./axum-api/Dockerfile
     networks:
       - redis-cluster-net
       - monitoring
+      - app-network
     image: parcel-app-trial:latest
     ports:
       - "8080:8080"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - REDIS_URL=redis://redis-cluster:6379
+      - RUST_LOG=info
+      - PORT=8080
+      - HOST=0.0.0.0
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+    ulimits:
+      nofile:
+        soft: 30000
+        hard: 30000
+    depends_on:
+      redis-cluster-init:
+        condition: service_completed_successfully
+      postgres_db:
+        condition: service_healthy
+
+  axum-api-2:
+    build:
+      context: .
+      dockerfile: ./axum-api/Dockerfile
+    networks:
+      - redis-cluster-net
+      - monitoring
+      - app-network
+    image: parcel-app-trial:latest
+    ports:
+      - "8081:8080"
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -64,9 +111,9 @@ services:
       - token-data:/loadtests:ro
     ulimits:
       nofile:
-        soft: 30000
-        hard: 30000
-    command: run /scripts/complete_test.js
+        soft: 40000
+        hard: 40000
+    command: run /scripts/driver.js
     depends_on:
       token-gen:
         condition: service_completed_successfully
@@ -99,7 +146,8 @@ services:
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
     depends_on:
-      - axum-api
+      - axum-api-1
+      - axum-api-2
 
   grafana:
     image: grafana/grafana:latest
@@ -152,6 +200,10 @@ services:
       - redis-node-1-data:/data
     networks:
       - redis-cluster-net
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 20000
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -179,6 +231,10 @@ services:
       - redis-node-2-data:/data
     networks:
       - redis-cluster-net
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 20000
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -206,6 +262,10 @@ services:
       - redis-node-3-data:/data
     networks:
       - redis-cluster-net
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 20000
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -233,6 +293,10 @@ services:
       - redis-node-4-data:/data
     networks:
       - redis-cluster-net
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 20000
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -260,6 +324,10 @@ services:
       - redis-node-5-data:/data
     networks:
       - redis-cluster-net
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 20000
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -287,6 +355,10 @@ services:
       - redis-node-6-data:/data
     networks:
       - redis-cluster-net
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 20000
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -325,6 +397,7 @@ services:
         condition: service_healthy
       redis-node-6:
         condition: service_healthy
+
 volumes:
   postgres-data:
   token-data:
@@ -341,4 +414,6 @@ networks:
   redis-cluster-net:
     driver: bridge
   monitoring:
+    driver: bridge
+  app-network:
     driver: bridge

@@ -11,15 +11,13 @@ use axum::{
     response::IntoResponse,
 };
 use std::sync::Arc;
-use tokio::time::{ Duration, interval, sleep};
-
+use tokio::time::{interval, sleep, Duration};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     Query(params): Query<ConnectParams>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-
     ws.on_upgrade(move |socket| async move {
         match params.role.as_str() {
             "driver" => handle_driver(socket, state, params.parcel_id).await,
@@ -89,9 +87,8 @@ async fn handle_driver(mut socket: WebSocket, state: Arc<AppState>, parcel_id: S
                 break;
             }
 
-        }//tokio: select
-
-    }//loop
+        } //tokio: select
+    } //loop
 
     tracing::info!("Driver disconnected for parcel {parcel_id}");
 }

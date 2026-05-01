@@ -1,30 +1,36 @@
 use axum::{
+    middleware,
     routing::{get, post},
-    Json, Router, middleware
+    Json, Router,
 };
 mod models;
 use serde::Serialize;
-use std::{net::SocketAddr, sync::{Arc, OnceLock}};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, OnceLock},
+};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-mod components;
 mod bus;
+mod components;
 mod handlers;
 mod middlewares;
+use axum_prometheus::{metrics_exporter_prometheus, PrometheusMetricLayer};
+use components::background::background_to_postgres;
+use components::password::check_ed_keys;
+use components::setup_redis::setup_redis;
 use dotenvy::dotenv;
-use handlers::{login::login_handler, register::register_handler, ws::ws_handler, customer::customer_handler, verify::verify_handler};
+use handlers::{
+    customer::customer_handler, login::login_handler, register::register_handler,
+    verify::verify_handler, ws::ws_handler,
+};
+use jsonwebtoken::{DecodingKey, EncodingKey};
+use lettre::{transport::smtp::authentication::Credentials, AsyncSmtpTransport, Tokio1Executor};
 use middlewares::auth::auth_middleware;
 use models::state::{AppState, StreamEvent};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use bus::redis_bus;
-use components::background::background_to_postgres;
-use redis::cluster::ClusterClient;
-use lettre::{transport::smtp::authentication::Credentials, AsyncSmtpTransport, Tokio1Executor};
-use axum_prometheus::{PrometheusMetricLayer, metrics_exporter_prometheus};
-use jsonwebtoken::{EncodingKey, DecodingKey};
-use components::password::check_ed_keys;
 use tokio::sync::mpsc;
 
 #[derive(Serialize)]
@@ -51,11 +57,16 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
-    let postgres_name = std::env::var("POSTGRES_USER").expect("POSTGRES_USERNAME must be set in .env");
-    let postgres_password = std::env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set in .env");
+    let postgres_name =
+        std::env::var("POSTGRES_USER").expect("POSTGRES_USERNAME must be set in .env");
+    let postgres_password =
+        std::env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set in .env");
     let postgres_db = std::env::var("POSTGRES_DB").expect("POSTGRES_DB must be set in .env");
     let postgres_host = std::env::var("POSTGRES_HOST").expect("POSTGRES_HOST must be set in .env");
-    let database_url = format!("postgres://{}:{}@{}:5432/{}", postgres_name, postgres_password, postgres_host, postgres_db  );
+    let database_url = format!(
+        "postgres://{}:{}@{}:5432/{}",
+        postgres_name, postgres_password, postgres_host, postgres_db
+    );
     let smtp_username = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME must be set in .env");
     let smtp_password = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD must be set in .env");
     let id = format!("worker-{}", uuid::Uuid::new_v4());
@@ -73,27 +84,10 @@ async fn main() {
         .await
         .expect("migrations failed");
     //run redis connection
-    let nodes = vec!["redis://redis-node-1:6379", "redis://redis-node-2:6379", "redis://redis-node-3:6379"];
-    let redis_client = ClusterClient::new(nodes).expect("failed to connect to redis cluster ");
-    let redis_manager = redis_client.get_async_connection().await.expect("failed to get redis connection");
-    let _: () = redis::cmd("XGROUP")
-            .arg("CREATE")
-            .arg("parcel:history")      // The stream name
-            .arg("history-processor")   // The group name
-            .arg("0")                   // Start from the very beginning of the stream
-            .arg("MKSTREAM")            // Create the stream if it doesn't exist
-            .query_async(&mut redis_manager.clone())
-            .await
-            .unwrap_or_else(|e| {
-                if !e.to_string().contains("BUSYGROUP") {
-                    panic!("Failed to setup Redis Group: {}", e);
-                }
-            });
+    let (redis_client, redis_subscriber) = setup_redis().await.expect("Broken");
+
     //SMTP credentials Connection
-    let creds = Credentials::new(
-        smtp_username.to_string(),
-        smtp_password.to_string(),
-    );
+    let creds = Credentials::new(smtp_username.to_string(), smtp_password.to_string());
     let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay("smtp.gmail.com")
         .unwrap()
         .credentials(creds)
@@ -104,7 +98,6 @@ async fn main() {
 
     // 2. CRITICAL: Register the handle as the GLOBAL recorder
     // This ensures metrics::counter! in your other files actually sends data here
-
 
     tracing::info!("App token");
     // JWT keys
@@ -118,51 +111,61 @@ async fn main() {
     let (stream_tx, stream_rx) = mpsc::channel::<StreamEvent>(10000);
 
     //running the all connection through Appstate
-    let state = Arc::new(AppState::new(redis_manager, pool, mailer, jwt_encoding_key, jwt_decoding_key, stream_tx).await);
+    let state = Arc::new(
+        AppState::new(
+            redis_client,
+            redis_subscriber,
+            pool,
+            mailer,
+            jwt_encoding_key,
+            jwt_decoding_key,
+            stream_tx,
+        )
+        .await,
+    );
     let background_state = state.clone();
-
-
-
 
     tracing::info!("App started");
 
-    tokio::spawn(async move { //use tokio::spawn to run the background task of moving from redis stream to postgres
-            // Using a 5-minute interval
+    tokio::spawn(async move {
+        //use tokio::spawn to run the background task of moving from redis stream to postgres
+        // Using a 5-minute interval
 
-                if let Err(e) = background_to_postgres(&background_state, stream_rx).await {
-                    tracing::error!("Background sync failed: {:?}", e);
-
-                }
+        if let Err(e) = background_to_postgres(&background_state, stream_rx).await {
+            tracing::error!("Background sync failed: {:?}", e);
+        }
     });
 
     let public_routes = Router::new()
         .route("/health", get(health))
-        .route("/metrics", get(move || async move { metric_handle.render() }))
+        .route(
+            "/metrics",
+            get(move || async move { metric_handle.render() }),
+        )
         .route("/register", post(register_handler))
         .route("/login", post(login_handler))
         .route("/verify", post(verify_handler))
         .layer(
             ServiceBuilder::new()
                 .layer(prometheus_layer)
-                .layer(TraceLayer::new_for_http())
+                .layer(TraceLayer::new_for_http()),
         )
         .with_state(state.clone());
 
     let private_routes = Router::new()
-
         .route("/ws", get(ws_handler))
         .route("/customer", get(customer_handler))
-
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
-                .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_middleware,
+                )),
         )
         .with_state(state);
 
-    let app = Router::new()
-        .merge(public_routes)
-        .merge(private_routes);
+    let app = Router::new().merge(public_routes).merge(private_routes);
 
     let addr = SocketAddr::from((
         std::env::var("HOST")

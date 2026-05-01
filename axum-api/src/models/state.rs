@@ -1,28 +1,38 @@
 use dashmap::DashMap;
-use redis::cluster_async::ClusterConnection;
-use tokio::sync::{broadcast, mpsc};
-use sqlx::PgPool;
+use fred::clients::{Pool, SubscriberClient};
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use lettre::{AsyncSmtpTransport, Tokio1Executor};
-use jsonwebtoken::{EncodingKey, DecodingKey};
-
+use sqlx::PgPool;
+use tokio::sync::{broadcast, mpsc};
 
 /// One in-process broadcast sender per parcel.
 /// Customers subscribe to this; the Redis listener feeds it.
 #[derive(Clone)]
 pub struct AppState {
-    pub redis_manager : ClusterConnection,
+    pub redis_client: Pool,
+    pub redis_subscriber: SubscriberClient,
     pub mailer: AsyncSmtpTransport<Tokio1Executor>,
     pub pool: PgPool,
-    pub parcels: DashMap<String, broadcast::Sender<String>>,/// parcel_id → sender for that parcel's location stream
+    pub parcels: DashMap<String, broadcast::Sender<String>>,
+    /// parcel_id → sender for that parcel's location stream
     pub jwt_encoding_key: EncodingKey,
     pub jwt_decoding_key: DecodingKey,
     pub redis_channel: mpsc::Sender<StreamEvent>,
 }
 
 impl AppState {
-    pub async fn new(redis_manager: ClusterConnection, pool: PgPool, mailer: AsyncSmtpTransport<Tokio1Executor>, jwt_encoding_key: EncodingKey, jwt_decoding_key: DecodingKey, redis_channel: mpsc::Sender<StreamEvent>) -> Self {
+    pub async fn new(
+        redis_client: Pool,
+        redis_subscriber: SubscriberClient,
+        pool: PgPool,
+        mailer: AsyncSmtpTransport<Tokio1Executor>,
+        jwt_encoding_key: EncodingKey,
+        jwt_decoding_key: DecodingKey,
+        redis_channel: mpsc::Sender<StreamEvent>,
+    ) -> Self {
         Self {
-            redis_manager,
+            redis_client,
+            redis_subscriber,
             mailer,
             pool,
             parcels: DashMap::new(),
@@ -33,22 +43,19 @@ impl AppState {
     }
 
     /// Get or create the in-process channel for a parcel.
-    pub fn channel_for(&self, parcel_id: &str) -> broadcast::Sender<String> {       //Only for subsriber pubsub of redis
+    pub fn channel_for(&self, parcel_id: &str) -> broadcast::Sender<String> {
+        //Only for subsriber pubsub of redis
         self.parcels
             .entry(parcel_id.to_string())
-            .or_insert_with(|| broadcast::channel::<String>(32).0)
+            .or_insert_with(|| broadcast::channel::<String>(1024).0)
             .clone()
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum StreamEvent {
-    ParcelStream {
-        stream_key: String,
-    },
-    ParcelDelivered {
-        parcel_id: String,
-    },
+    ParcelStream { stream_key: String },
+    ParcelDelivered { parcel_id: String },
 }
 
 impl StreamEvent {

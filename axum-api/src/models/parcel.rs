@@ -1,8 +1,8 @@
 use crate::models::location_user::DriverStatus;
 
-
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct Parcel {                                             //This struct represents a parcel in the system when Customer books and sends it to the database
+pub struct Parcel {
+    //This struct represents a parcel in the system when Customer books and sends it to the database
     pub id: String,
     pub sender: String,
     pub recipient: String,
@@ -26,7 +26,8 @@ impl Parcel {
             || self.dest_lat.is_nan()
             || self.dest_lon.is_nan()
             || self.from_lat.is_nan()
-            || self.from_lon.is_nan() {
+            || self.from_lon.is_nan()
+        {
             return false;
         }
         true

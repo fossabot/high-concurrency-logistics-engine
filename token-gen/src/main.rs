@@ -1,5 +1,5 @@
-use ed25519_dalek::{SigningKey, Signer};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs::File;
@@ -55,8 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let priv_hex = env::var("JWT_PRIVATE_KEY")
         .expect("JWT_PRIVATE_KEY not set — same key as your axum API .env");
 
-    let priv_bytes = hex::decode(priv_hex)
-        .expect("Invalid hex in JWT_PRIVATE_KEY");
+    let priv_bytes = hex::decode(priv_hex).expect("Invalid hex in JWT_PRIVATE_KEY");
 
     let priv_array: [u8; 32] = priv_bytes
         .try_into()
@@ -70,8 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse()
         .unwrap_or(5000);
 
-    let output_path = env::var("TOKEN_OUTPUT")
-        .unwrap_or_else(|_| "tokens.txt".to_string());
+    let output_path = env::var("TOKEN_OUTPUT").unwrap_or_else(|_| "tokens.txt".to_string());
 
     let file = File::create(&output_path)?;
     let mut writer = BufWriter::new(file);
