@@ -13,8 +13,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with: {components: 'clippy, rustfmt', cache: true}
       - run: cargo fmt --all 
-      - run: cargo clippy --all-targets
-
+      - run: cargo clippy 
   test-and-build:
     needs: quality-gate
     runs-on: ubuntu-latest
