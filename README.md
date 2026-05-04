@@ -70,6 +70,33 @@ This system solves all four end to end.
 
 ---
 
+```mermaid
+sequenceDiagram
+    participant C as Clients (10k)
+    participant N as Nginx (LB)
+    participant R as Rust (Axum)
+    participant D as Redis (Hot Store)
+    participant P as Postgres (Cold Store)
+
+    C->>N: WebSocket Stream
+    N->>R: Upgrade & Forward
+    
+    Note over R: High-Frequency Loop
+    
+    rect rgb(20, 20, 20)
+        Note right of R: The "Hot Path" (< 3ms)
+        R->>R: Ed25519 Verify
+        R->>D: Atomic Lua Update
+        D-->>R: Ack (New State)
+    end
+
+    par Async Persistence
+        R-->>C: 200 OK (Ack)
+        and
+        R->>R: Send to MPSC Channel
+        R->>P: Batch Insert (Background Task)
+    end
+```
 ## Load Test Results
 
 > Full methodology, stages, and raw output with the cluster test: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
