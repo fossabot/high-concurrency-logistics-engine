@@ -73,7 +73,7 @@ CUSTOMER LOGIC
 ```mermaid
 sequenceDiagram
     participant C as Customer (5k)
-    participant N as Nginx (LB)
+    participant N as Ingress-Nginx (LB)
     participant R as Rust (Axum)
     participant D as Redis (Hot Store)
 
