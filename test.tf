@@ -92,7 +92,7 @@ resource "google_compute_firewall" "allow_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["0.0.0.0/0"] # WARNING:  Good for testing.
+  source_ranges = ["1.2.3.4/0"] # WARNING:  Good for testing.
 }
 
 output "k6_runner_public_ip" {
