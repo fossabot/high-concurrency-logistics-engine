@@ -144,7 +144,7 @@ sequenceDiagram
 ## Load Test Results (Production Environment)
 
 **Infrastructure:** Google Kubernetes Engine (GKE) Autopilot
-**Cluster Region:** usa-central1 
+**Cluster Region:** asia-south1 
 **Resources:** 
 - API Pods: 1.5 vCPU / 2GB RAM (Horizontal Pod Autoscaling Enabled)
 - Redis: Cluster Mode (3 Primaries, 3 Replicas)
@@ -155,17 +155,17 @@ sequenceDiagram
 | **Concurrent Users** | **10,000** |
 | **Environment** | **GKE Autopilot** |
 | **p50 Latency** | **3ms** |
-| **p99 Latency** | **19ms**  |
+| **p95 Latency** | **19ms**  |
 
 
 
 ## Grafana Dashboard
 
-For 14000 VUs, 7000 Driver VUs and 7000 Customer VUs
+For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 
-![Architecture Diagram](assets/customer_and_driver_load_test.png)
+![Architecture Diagram](./assets/heatmap_othersample.png)
 
-[![Grafana Dashboard](images/grafana_dashboard.png)](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
+[![Grafana Dashboard]](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
 
 
 
