@@ -96,7 +96,6 @@ sequenceDiagram
     end
 ```
     
-![Architecture Diagram](assets/first_test_rediscluster_k6_results.png)
 
 ---
 
