@@ -7,8 +7,8 @@ STATUS: Horizontally Scaled Backend with Redis Cluster and Postgresql IN Google 
 ## Cloud Deployment (GKE)
 
 K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
-![Baseline Load Test](../assets/gke_loadtest.png)
-![Grafana Heatmap view from source Postgres](../assets/heatmap_grafana.png)
+![Baseline Load Test](./assets/gke_loadtest.png)
+![Grafana Heatmap view from source Postgres](./assets/heatmap_grafana.png)
 
 The system is architected to run on **GKE Autopilot**. 
 Kubernetes manifests are available in the `/k8s` directory.
@@ -67,6 +67,7 @@ sequenceDiagram
         R->>R: Send to MPSC Channel
         R->>P: Batch Insert (Background Task)
     end
+```
 
 CUSTOMER LOGIC
 ```mermaid
@@ -93,7 +94,7 @@ sequenceDiagram
         and
         R->>R: DashMap Broadcast Channel
     end
-
+```
     
 ![Architecture Diagram](assets/first_test_rediscluster_k6_results.png)
 

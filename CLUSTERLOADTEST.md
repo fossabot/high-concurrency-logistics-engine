@@ -25,7 +25,7 @@ and allow higher concurrent VU counts within the same resource envelope.
 
 ## Test 1 — Baseline (21 April 2026)
 
-![Baseline Load Test](../assets/singlenode_k6_results_c10k.png)
+![Baseline Load Test](./assets/singlenode_k6_results_c10k.png)
 
 First successful 10k VU run with redis node not cluster. Used to verify the system held under sustained load.
 
@@ -64,7 +64,7 @@ ws_sessions........: 30540        33.086307/s
 Run immediately after Test 1 to check if RAM climbed or leaked under consecutive load.  
 If memory was leaking, this test would show degraded performance or errors.
 
-![Second Redis Cluster Load Test](../assets/second_test_rediscluster_back_to_back.png)
+![Second Redis Cluster Load Test](./assets/second_test_rediscluster_back_to_back.png)
 
 ```
 THRESHOLDS
@@ -100,7 +100,7 @@ No memory leak. Performance identical to Test 1.**
 Same 10k VUs but with connection churn — clients disconnecting and reconnecting  
 throughout the test to simulate real-world driver app behaviour.
 
-![First Redis Clusster Load Test](../assets/first_test_redis_cluster_k6_results.png)
+![First Redis Clusster Load Test](./assets/first_test_redis_cluster_k6_results.png)
 
 ```
 THRESHOLDS
@@ -136,7 +136,7 @@ System handles reconnection storms without degradation.**
 Redis cluster node manually stopped during a live 10k VU run.  
 Purpose: verify FuturesUnordered fault tolerance and cluster failover behaviour.
 
-![Manual Failure Load Test](../assets/test_with_redis_node_failure_k6_result.png)
+![Manual Failure Load Test](./assets/test_with_redis_node_failure_k6_result.png)
 
 ```
 THRESHOLDS
@@ -198,7 +198,7 @@ ws_errors: 0 (both scenarios) | correct parcel id: ✓ | p(95) connect: 19.42ms
 Note: customers receive updates at 5 second intervals by design.
 Drivers send every 2 seconds but redundant positions are filtered
 at the Redis dedup layer before customer delivery.
-![Customer and Driver test](../assets/customer_and_driver_load_test.png)
+![Customer and Driver test](./assets/customer_and_driver_load_test.png)
 
 
  █ THRESHOLDS
