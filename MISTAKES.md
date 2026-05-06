@@ -7,3 +7,5 @@
 - Mistake used format! for making a struct as string for serialization of json.
 - unknowingly used std::sync::mpsc cause app to crash.
 - Ephimeral ports were exhausted in windows due to time_wait so created docker compose for testing.
+- GKE initially used my custom Nginx because I thought it didnt have inbuilt like my docker compose and local kubernetes and was getting higher latency.
+- Dashmap use parcelid and i tried to get with a channel(parcelid) and scratched hours why im not receiving message from redis and changed everything then also it was not workking after disceting step by step ive finaly caught it.

@@ -1,17 +1,18 @@
 # Architecture Decisions
 
 ## Ed25519 over RSA for jwt signing
-RSA required higher CPU processing than Ed25519 with more time. At 
-high Websocket Connection requests every verification adds up to 
-more CPU power. So I used Ed25519 as it provides same security 
-with lower data footprint.
+RSA required higher CPU processing than Ed25519 with more time i.e., 
+RSA:256byte and Ed25519:64byte .At high Websocket Connection 
+requests every verification adds up to more CPU power. So I used 
+Ed25519 as it provides same security with lower data footprint.
 
 ## Redis Lua script for deduplication
-Needed atomic compare and write to the stream only if the location 
-was changed. Also, reduces time needed for round trips for the 
-operation if not used Lua scripts and also prevent data race 
-condition at high load. Lua scripts directly run at the nodes of 
-the server thereby reducing 2 round trips to a single round trip.
+Needed atomic for **Read-Modify-Write Atomicity** that is compare 
+and write to the stream only if the location was changed. Also, 
+reduces time needed for round trips for the operation if not used
+Lua scripts and also prevent data race condition at high load. 
+Lua scripts directly run at the nodes of the server thereby 
+reducing 2 round trips to a single round trip.
 
 ## At Fixed Interval or under Heavy Load Requests, making batch
 ## windows for postgres writes
@@ -21,7 +22,7 @@ network IO and causing postgres connection time to increase.
 But by batching at most 1000 entries or waiting 20 second, 
 the batch of entries can be carried out in a single connection 
 through UNNEST while keeping location data fresh enough
-for parcel tracking.
+for parcel tracking which can be called **Write Coalescing**.
 Maximum acceptable data loss window: 30 seconds by design.
 
 ## FuturesUnordered for Redis cluster
@@ -38,3 +39,8 @@ active connections that need to send data to the Postgres.
 This decouples ingestion from persistence — handlers never 
 block waiting on Postgres,and flushes on interval of 20s or size 
 limit exceeds 1000.
+
+## Using Dashmap for Subscribe of Redis 
+Dashmap is reliable due to its sharding compared to Hashmap.
+Dashmap using with tokio::Broadcast make havinf a buffer so it 
+can hold N message making easier if a customer was disconnected.

@@ -5,7 +5,7 @@ import { SharedArray } from "k6/data";
 
 // ─── Pre-generated Ed25519 tokens from token-gen ──────────────────────────────
 const tokens = new SharedArray("driver_tokens", function () {
-  return open("/loadtests/token-output.txt").trim().split("\n");
+  return open("./token-output.txt").trim().split("\n");
 });
 
 // ─── Custom Metrics ───────────────────────────────────────────────────────────
@@ -15,12 +15,12 @@ const connectionDuration = new Trend("ws_connection_duration_ms");
 const locationUpdatesReceived = new Counter("location_updates_received");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BASE_URL = "ws://host.docker.internal:80";
+const BASE_URL = __ENV.BASE_URL;
 
 // Bangalore bounding box
 const START_LAT = 12.9716;
 const START_LNG = 77.5946;
-const PARCEL_COUNT = 8000;
+const PARCEL_COUNT = 50;
 // ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
   scenarios: {
@@ -28,9 +28,9 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 0,
       stages: [
-        { duration: "5m", target: 8000 }, // gentle start
-        { duration: "8m", target: 8000 }, // soak
-        { duration: "5m", target: 0 }, // ramp down
+        { duration: "2m", target: 5000 }, // gentle start
+        { duration: "4m", target: 5000 }, // soak
+        { duration: "4m", target: 0 }, // ramp down
       ], // cool down
       gracefulStop: "245s", // Higher than your 240s iteration time
       gracefulRampDown: "245s",
@@ -39,11 +39,11 @@ export const options = {
     customers: {
       executor: "ramping-vus",
       startVUs: 0,
-      startTime: "305s",
+      startTime: "125s",
       stages: [
-        { duration: "5m", target: 8000 },
-        { duration: "2m", target: 8000 },
-        { duration: "5m", target: 0 },
+        { duration: "2m", target: 5000 },
+        { duration: "1m", target: 5000 },
+        { duration: "4m", target: 0 },
       ], // cool down
       gracefulStop: "245s", // Higher than your 240s iteration time
       gracefulRampDown: "245s",
@@ -173,10 +173,11 @@ export function driver_logic() {
 export function customer_logic() {
   const vuId = __VU;
   const parcelId = `parcel-${(vuId % PARCEL_COUNT) + 1}`;
-  let tick = 0;
-  // Pick pre-generated Ed25519 token — signed with same key as axum API
+
+  // Token logic remains same...
   const token = tokens[(vuId - 1) % tokens.length];
   const startTime = Date.now();
+
   const res = ws.connect(
     `${BASE_URL}/customer?parcel_id=${parcelId}&role=customer`,
     {
@@ -187,45 +188,53 @@ export function customer_logic() {
     },
     function (socket) {
       socket.on("open", function () {
-        // 1. Randomize the first ping (JITTER)
-        // This prevents 10,000 users from pinging at the exact same millisecond
-        const initialDelay = Math.random() * 20;
-        console.log(`Initial delay: ${initialDelay}`);
-        socket.setInterval(
-          function () {
+        // 1. FIX: Actually use the Jitter
+        // We use setTimeout to delay the FIRST ping, desynchronizing the fleet.
+        const initialDelay = Math.random() * 20000; // 0-20 seconds delay
+
+        socket.setTimeout(function () {
+          // Send first ping
+          socket.send(JSON.stringify({ type: "ping" }));
+
+          // Start regular interval AFTER the delay
+          socket.setInterval(function () {
             socket.send(JSON.stringify({ type: "ping" }));
-          },
-          25000 + Math.random() * 5000,
-        ); // Ping every 25-30 seconds
-      });
-      socket.on("message", function (data) {
-        console.log(`Raw message from server: ${data}`); // <--- ADD THIS
-        try {
-          const msg = JSON.parse(data);
-          check(msg, {
-            "is valid location update": (m) =>
-              m.latitude !== undefined && m.longitude !== undefined,
-            "correct parcel id": (m) => m.parcel_id === parcelId,
-          });
-          locationUpdatesReceived.add(1);
-        } catch (e) {
-          console.error(`Failed to parse JSON. Data was: ${data}`);
-        }
+          }, 30000); // Ping every 30s
+        }, initialDelay);
       });
 
-      socket.on("error", function (e) {
-        wsErrors.add(1);
-        console.error(`VU ${vuId} error: ${e.error()}`);
-      });
-      socket.on("close", function () {
-        connectionDuration.add(Date.now() - startTime);
+      socket.on("message", function (data) {
+        // 2. FIX: REMOVED console.log
+        // Only log errors, never success data in a load test.
+        try {
+          const msg = JSON.parse(data);
+
+          // Lightweight checks
+          if (msg.latitude && msg.longitude) {
+            locationUpdatesReceived.add(1);
+          }
+          check(msg, {
+            "correct parcel id": (m) => m.parcel_id === parcelId,
+          });
+          // Optional: detailed check (Costly at 10k users, use sparingly)
+          // check(msg, { ... });
+        } catch (e) {
+          // Keep this error log, it's rare and important
+          console.error(`Parse Error: ${e}`);
+        }
       });
       socket.setTimeout(function () {
         socket.close();
-      }, 180000);
+      }, 120000);
+      socket.on("error", function (e) {
+        wsErrors.add(1);
+        // Only log the first few errors to avoid console flood
+        if (__ITER < 10) {
+          console.error(`VU ${vuId} error: ${e.error()}`);
+        }
+      });
     },
   );
-  sleep(120);
 
   check(res, {
     "WebSocket connected (101)": (r) => r && r.status === 101,

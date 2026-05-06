@@ -10,11 +10,9 @@ use fred::types::geo::{GeoPosition, GeoValue};
 use fred::types::Value;
 use futures::stream::FuturesUnordered;
 use std::{collections::HashSet, sync::Arc};
-use tokio::time::{sleep, Duration};
-use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 /// Channel name convention: one channel per parcel
-fn channel(parcel_id: &str) -> String {
+pub fn channel(parcel_id: &str) -> String {
     format!("{{{}}}:channel:parcel", parcel_id)
 }
 
@@ -108,62 +106,14 @@ pub async fn last_position(
     }
 }
 
-/// Subscribe to a parcel channel and fan-out into the in-process broadcast.
-/// Spawned once per parcel when the first customer connects.
-pub async fn subscribe_parcel(parcel_id: String, state: Arc<AppState>) {
+
+
+pub async fn subscribe_parcel( state: &Arc<AppState>, parcel_id: &str)-> Result<(),SyncError> {
     let client = state.redis_subscriber.clone();
-    tracing::info!("before subcriber task");
-    // 2. Start listening to the message stream FIRST so you don't miss the start
+     client.ssubscribe(channel(parcel_id)).await?;
 
-    let mut message_stream = BroadcastStream::new(client.message_rx());
-    // 3. Use SSUBSCRIBE for Redis 7 Sharded Pub/Sub
-    if let Err(e) = client.ssubscribe(channel(&parcel_id)).await {
-        tracing::error!("Redis ssubscribe failed: {e}");
-        return;
-    }
 
-    tracing::info!("Redis subscriber started for parcel {parcel_id}");
-    let expected_channel = channel(&parcel_id);
-
-    loop {
-        tokio::select! {
-            msg = message_stream.next() => {
-                match msg {
-                    Some(Ok(msg)) => {
-                        if msg.channel != expected_channel {
-                            continue;
-                        }
-                        let payload = match msg.value.as_string() {
-                            Some(p) => p.to_string(),
-                            None => continue,
-                        };
-                        let tx = state.channel_for(&parcel_id);
-                        if tx.receiver_count() == 0 {
-                            let _ = client.sunsubscribe(channel(&parcel_id)).await;
-                            state.parcels.remove(&parcel_id);
-                            return;
-                        }
-                        let _ = tx.send(payload);
-                    }
-                    Some(Err(e)) => {
-                        tracing::error!("Stream error: {:?}", e);
-                        break;
-                    }
-                    None => break,
-                }
-            }
-            // Cleanup check every 30 seconds
-            _ = sleep(Duration::from_secs(30)) => {
-                let tx = state.channel_for(&parcel_id);
-                if tx.receiver_count() == 0 {
-                    tracing::info!("No customers for {parcel_id}, cleaning up");
-                    let _ = client.sunsubscribe(channel(&parcel_id)).await;
-                    state.parcels.remove(&parcel_id);
-                    return;
-                }
-            }
-        }
-    }
+     Ok(())
 }
 
 /// Publish a message to the Redis stream for the given parcel after a delay

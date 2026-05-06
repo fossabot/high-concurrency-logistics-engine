@@ -2,3 +2,10 @@ target/
 .env
 **/target/
 *.lock
+*.hcl
+*.info
+*.tfstate.*
+*.tfstate
+*.terraform
+k8s/secret.yaml
+postgres-data-backup

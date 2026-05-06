@@ -1,12 +1,25 @@
 # Real-Time Parcel Tracking System (Rust)
 
-STATUS: Single-Backend with Redis Cluster and Postgresql
+![GKE](https://img.shields.io/badge/gke-autopilot-4285F4?logo=google-cloud&logoColor=white)
+
+STATUS: Horizontally Scaled Backend with Redis Cluster and Postgresql IN Google Kubernetes Engine
+
+## Cloud Deployment (GKE)
+
+K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
+![Baseline Load Test](../assets/gke_loadtest.png)
+![Grafana Heatmap view from source Postgres](../assets/heatmap_grafana.png)
+
+The system is architected to run on **GKE Autopilot**. 
+Kubernetes manifests are available in the `/k8s` directory.
+
+**Key Configuration:**
+- **Ingress:** Nginx Controller configured for WebSocket upgrade headers.
+- **HPA:** CPU-based autoscaling triggers at 70% utilization.
+- **Secrets:** Ed25519 keys injected via Kubernetes Secrets.
 
 
-> **Current Milestone:** Single-node backend with Redis Cluster optimization (10k Concurrent VUs achieved).
-> **Next Milestone:** Horizontal scaling with Nginx Load Balancer.
-
-> A production-grade distributed backend for live courier tracking, built in Rust. Handles **10,000 concurrent WebSocket connections** with **100% success rate**, **6.35ms average connection time**, on **under 1 CPU cores** and **under 2GB RAM** — entire stack included.
+> A production-grade distributed backend for live courier tracking, built in Rust. Handles **10,000 concurrent WebSocket connections** with **100% success rate**
 
 **Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live tracking in real time.
 
@@ -23,6 +36,65 @@ Parcel delivery platforms have a hard real-time problem:
 
 This system solves all four end to end.
 
+## Architecture
+
+The system uses an asynchronous, non-blocking architecture to decouple high-frequency ingestion from database persistence.  
+
+DRIVER LOGIC
+```mermaid
+sequenceDiagram
+    participant C as Driver (5k)
+    participant N as Ingress-Nginx (LB)
+    participant R as Rust (Axum)
+    participant D as Redis (Hot Store)
+    participant P as Postgres (Cold Store)
+
+    C->>N: WebSocket Stream
+    N->>R: Upgrade & Forward
+    
+    Note over R: High-Frequency Loop
+    
+    rect rgb(20, 20, 20)
+        Note right of R: The "Hot Path" (< 3ms)
+        R->>R: Ed25519 Verify
+        R->>D: Atomic Lua Update
+        D-->>R: Ack (New State)
+    end
+
+    par Async Persistence
+        R-->>C: 200 OK (Ack)
+        and
+        R->>R: Send to MPSC Channel
+        R->>P: Batch Insert (Background Task)
+    end
+
+CUSTOMER LOGIC
+```mermaid
+sequenceDiagram
+    participant C as Customer (5k)
+    participant N as Nginx (LB)
+    participant R as Rust (Axum)
+    participant D as Redis (Hot Store)
+
+    C->>N: WebSocket Stream
+    N->>R: Upgrade & Forward
+    
+    Note over R: High-Frequency Loop
+    
+    rect rgb(20, 20, 20)
+        Note right of R: The "Hot Path" (< 3ms)
+        R->>R: Ed25519 Verify
+        R->>D: Subscribe Channel 
+        D-->>R: LocationUpdates of Parcel
+    end
+
+    par Async Persistence
+        R-->>C: Location Update
+        and
+        R->>R: DashMap Broadcast Channel
+    end
+
+    
 ![Architecture Diagram](assets/first_test_rediscluster_k6_results.png)
 
 ---
@@ -69,11 +141,22 @@ This system solves all four end to end.
 
 ---
 
-## Load Test Results
+## Load Test Results (Production Environment)
 
-> Full methodology, stages, and raw output with the cluster test: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
+**Infrastructure:** Google Kubernetes Engine (GKE) Autopilot
+**Cluster Region:** usa-central1 
+**Resources:** 
+- API Pods: 1.5 vCPU / 2GB RAM (Horizontal Pod Autoscaling Enabled)
+- Redis: Cluster Mode (3 Primaries, 3 Replicas)
+- Ingress: Nginx Ingress Controller with tuned `worker_connections`
 
-> Full methodology, stages, and raw output with the singleredis node test: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
+| Metric | Result |
+|---|---|
+| **Concurrent Users** | **10,000** |
+| **Environment** | **GKE Autopilot** |
+| **p50 Latency** | **3ms** |
+| **p99 Latency** | **19ms**  |
+
 
 
 ## Grafana Dashboard
@@ -86,7 +169,7 @@ For 14000 VUs, 7000 Driver VUs and 7000 Customer VUs
 
 
 
-### Scaling Analysis
+### Scaling Analysis Locally
 
 | Connections | Status | Notes |
 |---|---|---|
@@ -104,7 +187,13 @@ Create a `.env` file at the workspace root:
 
 ```env
 # Database
-DATABASE_URL=postgres://postgres:yourpassword@postgres_db:5432/postgres
+# Remember DATABASE_URL and postgres user details should match
+# Format of the URL postgres://POSTGRES_USER:POSTGRES_PASSWORD@POSTGRES_HOST:5432/POSTGRES_DB
+DATABASE_URL=postgres://prati:Source@host.docker.internal:5432/parcel
+POSTGRES_USER=prati
+POSTGRES_PASSWORD=Source
+POSTGRES_HOST=host.docker.internal
+POSTGRES_DB=parcel          
 
 # Redis
 REDIS_URL=redis://redis:6379
@@ -179,7 +268,7 @@ docker compose exec axum-api cargo test
 ### Step 4 — Full Run
 
 ```bash
-docker compose up
+docker compose up 
 ```
 
 ### Step 5 — Verify
@@ -262,7 +351,8 @@ axum_api/
 │       └──components  
 │              ├──password     ← Ed25519 JWT token generator for load testing
 │              ├──background   ← Batch operations running for postgres
-│              └──batch_postgres  ← Sqlx Unnest and parse StreamId to location update
+│              ├──batch_postgres  ← Sqlx Unnest and parse StreamId to location update
+│              └──redis_read_background  ← Redis Subscriber Message Receiving  operations running for postgres
 ├── token-gen/                 
 │   ├── Cargo.toml
 |   ├──Dockerfile
@@ -275,6 +365,11 @@ axum_api/
          
 ```
 
+## Load Test Results
+## LOCALY RUN INITIAL TEST RESULTS 
+> Full methodology, stages, and raw output with the cluster test in docker compose: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
+
+> Full methodology, stages, and raw output with the singleredis node test docker compose: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
 
 ---
 

@@ -19,7 +19,7 @@ mod middlewares;
 use axum_prometheus::{metrics_exporter_prometheus, PrometheusMetricLayer};
 use components::background::background_to_postgres;
 use components::password::check_ed_keys;
-use components::setup_redis::setup_redis;
+use components::{setup_redis::setup_redis, redis_read_background};
 use dotenvy::dotenv;
 use handlers::{
     customer::customer_handler, login::login_handler, register::register_handler,
@@ -32,6 +32,7 @@ use models::state::{AppState, StreamEvent};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tokio::sync::mpsc;
+
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -57,6 +58,8 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
+    let redis_node =
+        std::env::var("REDIS_NODE").expect(" redis must be must be set in .env");
     let postgres_name =
         std::env::var("POSTGRES_USER").expect("POSTGRES_USERNAME must be set in .env");
     let postgres_password =
@@ -74,7 +77,8 @@ async fn main() {
     tracing::info!("Worker ID: {}", WORKER_ID.get().unwrap());
     // create the connection pool
     let pool: PgPool = PgPoolOptions::new()
-        .max_connections(1000)
+        .max_connections(100)
+        .acquire_timeout(Duration::from_secs(5))
         .connect(&database_url)
         .await
         .expect("failed to connect to database");
@@ -84,7 +88,7 @@ async fn main() {
         .await
         .expect("migrations failed");
     //run redis connection
-    let (redis_client, redis_subscriber) = setup_redis().await.expect("Broken");
+    let (redis_client, redis_subscriber) = setup_redis(redis_node).await.expect("Broken");
 
     //SMTP credentials Connection
     let creds = Credentials::new(smtp_username.to_string(), smtp_password.to_string());
@@ -135,6 +139,12 @@ async fn main() {
             tracing::error!("Background sync failed: {:?}", e);
         }
     });
+
+    let background_state2 = state.clone();
+    tokio::spawn(async move {
+            redis_read_background::start_global_redis(background_state2).await;
+    });
+
 
     let public_routes = Router::new()
         .route("/health", get(health))

@@ -1,13 +1,14 @@
 use crate::models::error::SyncError;
-use fred::clients::{ Pool, SubscriberClient};
+use fred::clients::{Pool, SubscriberClient};
 use fred::prelude::*;
 use fred::types::{config::ClusterDiscoveryPolicy, RespVersion};
 use std::time::Duration;
 
-pub async fn setup_redis() -> Result<(Pool, SubscriberClient), SyncError> {
+pub async fn setup_redis(redis_node: String) -> Result<(Pool, SubscriberClient), SyncError> {
+
     let config = Config {
         server: ServerConfig::Clustered {
-            hosts: vec![Server::new("redis-node-1", 6379)],
+            hosts: vec![Server::new(redis_node, 6379)],
             policy: ClusterDiscoveryPolicy::UseCache,
         },
         fail_fast: false,

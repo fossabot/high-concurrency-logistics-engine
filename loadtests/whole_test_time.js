@@ -28,7 +28,8 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 0,
       stages: [
-        { duration: "2m", target: 4000 }, // gentle start
+        { duration: "2m", target: 4000 },
+        { duration: '3m', target: 12000 } // gentle start
         { duration: "8m", target: 8000 }, // soak
         { duration: "8m", target: 0 }, // ramp down
       ], // cool down

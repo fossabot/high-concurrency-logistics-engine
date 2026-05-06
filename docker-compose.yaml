@@ -27,7 +27,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_DB=${POSTGRES_DB}
-      - REDIS_URL=redis://redis-cluster:6379
+      - REDIS_NODE=${REDIS_NODE}
       - RUST_LOG=info
       - PORT=8080
       - HOST=0.0.0.0
@@ -61,7 +61,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_DB=${POSTGRES_DB}
-      - REDIS_URL=redis://redis-cluster:6379
+      - REDIS_NODE=${REDIS_NODE}
       - RUST_LOG=info
       - PORT=8080
       - HOST=0.0.0.0
@@ -80,7 +80,7 @@ services:
         condition: service_healthy
 
   postgres_db:
-    image: postgres:alpine
+    image: postgres:16-alpine
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -103,6 +103,8 @@ services:
 
   k6-test:
     image: grafana/k6:latest
+    environment:
+      - BASE_URL=${BASE_URL}
     profiles: ["test"]
     networks:
       - monitoring # This stops it from starting automatically
@@ -113,7 +115,7 @@ services:
       nofile:
         soft: 40000
         hard: 40000
-    command: run /scripts/driver.js
+    command: run /scripts/complete_test.js
     depends_on:
       token-gen:
         condition: service_completed_successfully

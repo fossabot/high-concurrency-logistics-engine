@@ -5,7 +5,7 @@ import { SharedArray } from "k6/data";
 
 // ─── Pre-generated Ed25519 tokens from token-gen ──────────────────────────────
 const tokens = new SharedArray("driver_tokens", function () {
-  return open("/loadtests/token-output.txt").trim().split("\n");
+  return open("./token-output.txt").trim().split("\n");
 });
 
 // ─── Custom Metrics ───────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ const locationUpdatesSent = new Counter("location_updates_sent");
 const connectionDuration = new Trend("ws_connection_duration_ms");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || "ws://host.docker.internal:8080";
+const BASE_URL = __ENV.BASE_URL;
 
 // Bangalore bounding box
 const START_LAT = 12.9716;
@@ -24,7 +24,7 @@ const START_LNG = 77.5946;
 export const options = {
   stages: [
     { duration: "2m", target: 2000 }, // Slow start
-    { duration: "5m", target: 15000 }, // Gentle climb
+    { duration: "6m", target: 15000 }, // Gentle climb
     { duration: "2m", target: 15000 }, // Soak test (the real stability check)
     { duration: "4m", target: 0 }, // Slow ramp down to avoid a "disconnect storm"
   ], // cool down
@@ -137,7 +137,6 @@ export default function () {
       });
     },
   );
-  sleep(115);
   check(res, {
     "WebSocket connected (101)": (r) => r.status === 101,
   });

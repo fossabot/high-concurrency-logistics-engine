@@ -20,10 +20,22 @@ MPSC Channel (batch collector)
 ↓
 Postgres (unnest bulk insert)
 
+Customer App
+↓ WebSocket (GPS update every 2s)
+Axum Backend
+↓
+Subcribe to Redis
+↓
+DashMap
+↓
+LocationUpdate to Customer
+
 ## Failure Tolerance
 - Redis node fails → FuturesUnordered continues with remaining nodes
 - Maximum data loss window: 30 seconds by design
 - No cascading failure between nodes
+- limiting Subcriber limit to one for each unique ID 
+
 
 ## Observability
 - Prometheus scraping custom metrics via /metrics
