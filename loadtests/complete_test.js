@@ -20,7 +20,7 @@ const BASE_URL = __ENV.BASE_URL;
 // Bangalore bounding box
 const START_LAT = 12.9716;
 const START_LNG = 77.5946;
-const PARCEL_COUNT = 50;
+const PARCEL_COUNT = 5000;
 // ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
   scenarios: {
