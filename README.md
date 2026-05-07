@@ -1,4 +1,4 @@
-# Real-Time Parcel Tracking System (Rust)
+# High-Concurrency WebSocket Engine (Rust/k8s)
 
 ![GKE](https://img.shields.io/badge/gke-autopilot-4285F4?logo=google-cloud&logoColor=white)
 
