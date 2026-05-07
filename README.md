@@ -195,8 +195,8 @@ Create a `.env` file at the workspace root:
 # Remember DATABASE_URL and postgres user details should match
 # Format of the URL postgres://POSTGRES_USER:POSTGRES_PASSWORD@POSTGRES_HOST:5432/POSTGRES_DB
 DATABASE_URL=postgres://prati:Source@host.docker.internal:5432/parcel
-POSTGRES_USER=prati
-POSTGRES_PASSWORD=Source
+POSTGRES_USER= name
+POSTGRES_PASS=your password
 POSTGRES_HOST=host.docker.internal
 POSTGRES_DB=parcel          
 
