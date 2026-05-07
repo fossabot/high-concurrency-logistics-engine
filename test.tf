@@ -19,26 +19,56 @@ resource "google_compute_network" "vpc_network" {
   auto_create_subnetworks = true
 }
 
-# 3. Create the GKE Autopilot Cluster
+
 resource "google_container_cluster" "primary" {
-  name     = "autopilot-cluster-tf"
-  location = "asia-south1"
+  name             = var.cluster_name
+  location         = var.zone
+  network          = google_compute_network.vpc_network.name
+  networking_mode  = "VPC_NATIVE"
 
-  # Enabling Autopilot mode
-  enable_autopilot = true
+  remove_default_node_pool = true
+  initial_node_count       = 1
 
-  network    = google_compute_network.vpc_network.name
+  ip_allocation_policy {}
 
-  networking_mode = "VPC_NATIVE"
-   ip_allocation_policy {
-     cluster_ipv4_cidr_block  = "/16"
-     services_ipv4_cidr_block = "/22"
-   }
-
-   release_channel {
-     channel = "REGULAR"
-   }
   deletion_protection = false
+
+  logging_config {
+    enable_components = []
+  }
+
+  monitoring_config {
+    enable_components = []
+    managed_prometheus {
+      enabled = false
+    }
+  }
+}
+
+resource "google_container_node_pool" "primary_nodes" {
+  name     = "main-pool"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 3
+  }
+
+  node_config {
+    machine_type = "e2-standard-4"
+    spot         = true
+    disk_type    = "pd-standard"
+    disk_size_gb = 30
+
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      environment = "loadtest"
+    }
+  }
 }
 
 resource "google_compute_instance" "k6_runner" {

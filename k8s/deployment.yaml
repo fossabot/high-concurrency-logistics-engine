@@ -129,18 +129,18 @@ spec:
             - name: REDIS_NODE
               value: "redis-cluster-0.redis-cluster.parcel-app.svc.cluster.local"
             - name: RUST_LOG
-              value: "info"
+              value: "warn"
             - name: PORT
               value: "8080"
             - name: HOST
               value: "0.0.0.0"
           resources:
             requests:
-              memory: "2000Mi"
-              cpu: "1000m"
+              memory: "1000Mi"
+              cpu: "500m"
             limits:
-              memory: "2000Mi"
-              cpu: "1000m"
+              memory: "1000Mi"
+              cpu: "500m"
           securityContext:
             allowPrivilegeEscalation: false
           readinessProbe:
@@ -216,11 +216,11 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              memory: "500Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "256m"
             limits:
-              memory: "500Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "256m"
       volumes:
         - name: conf
           configMap:
@@ -368,11 +368,11 @@ spec:
               mountPath: /var/lib/grafana
           resources:
             requests:
-              memory: "800Mi"
-              cpu: "1000m"
+              memory: "1000Mi"
+              cpu: "500m"
             limits:
-              memory: "800Mi"
-              cpu: "1000m"
+              memory: "1000Mi"
+              cpu: "500m"
       volumes:
         - name: grafana-data
           emptyDir: {}
