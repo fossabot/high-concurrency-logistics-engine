@@ -40,7 +40,12 @@ This decouples ingestion from persistence — handlers never
 block waiting on Postgres,and flushes on interval of 20s or size 
 limit exceeds 1000.
 
-## Using Dashmap for Subscribe of Redis 
-Dashmap is reliable due to its sharding compared to Hashmap.
-Dashmap using with tokio::Broadcast make havinf a buffer so it 
-can hold N message making easier if a customer was disconnected.
+## Using Dashmap for Subscribe of Redis  
+Dashmap is reliable due to its sharding nature compared to Hashmap
+i.e., you can concurrent read-write without global lock. 
+broadcast::Sender enables fan-out — one driver location update is 
+delivered to N customer subscribers watching that driver simultaneously.
+Tradeoff : broadcast drops messages for slow receivers when the buffer 
+fills. For live location tracking, tokio::watch would be more correct 
+since only the latest position matters — this is a known tradeoff 
+I'd address before production.
