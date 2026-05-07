@@ -40,6 +40,8 @@ This system solves all four end to end.
 
 The system uses an asynchronous, non-blocking architecture to decouple high-frequency ingestion from database persistence.  
 
+I used Rust's ownership model eliminates data races across 10k concurrent handlers at compile time — not at runtime.
+
 DRIVER LOGIC
 ```mermaid
 sequenceDiagram
@@ -90,9 +92,10 @@ sequenceDiagram
     end
 
     par Async Persistence
-        R-->>C: Location Update
-        and
         R->>R: DashMap Broadcast Channel
+        par
+        R-->>C: Location Update
+       
     end
 ```
     
@@ -190,8 +193,8 @@ Create a `.env` file at the workspace root:
 # Remember DATABASE_URL and postgres user details should match
 # Format of the URL postgres://POSTGRES_USER:POSTGRES_PASSWORD@POSTGRES_HOST:5432/POSTGRES_DB
 DATABASE_URL=postgres://prati:Source@host.docker.internal:5432/parcel
-POSTGRES_USER=prati
-POSTGRES_PASSWORD=Source
+POSTGRES_USER= name
+POSTGRES_PASSyour password
 POSTGRES_HOST=host.docker.internal
 POSTGRES_DB=parcel          
 
@@ -374,7 +377,6 @@ axum_api/
 ---
 
 ## Author
-Note: Git history was reset during a major directory restructuring/refactor on 21/04/2026."
 **Pramod S B**
 Backend Engineer — Real-time distributed systems in Rust
 Bengaluru, India
