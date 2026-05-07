@@ -92,8 +92,6 @@ sequenceDiagram
     end
 
     par Async Persistence
-        R-->>C: Location Update
-        and
         R->>R: DashMap Broadcast Channel
         and
         R-->>C: Location Update
@@ -379,7 +377,6 @@ axum_api/
 ---
 
 ## Author
-Note: Git history was reset during a major directory restructuring/refactor on 21/04/2026."
 **Pramod S B**
 Backend Engineer — Real-time distributed systems in Rust
 Bengaluru, India
