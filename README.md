@@ -40,6 +40,8 @@ This system solves all four end to end.
 
 The system uses an asynchronous, non-blocking architecture to decouple high-frequency ingestion from database persistence.  
 
+I used Rust's ownership model eliminates data races across 10k concurrent handlers at compile time — not at runtime.
+
 DRIVER LOGIC
 ```mermaid
 sequenceDiagram
@@ -93,6 +95,9 @@ sequenceDiagram
         R-->>C: Location Update
         and
         R->>R: DashMap Broadcast Channel
+        and
+        R-->>C: Location Update
+       
     end
 ```
     

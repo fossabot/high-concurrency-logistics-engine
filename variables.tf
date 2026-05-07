@@ -13,4 +13,5 @@ variable "zone" {
 variable "cluster_name" {
   type        = string
   default     = "parcel-tracking-cluster"
+
 }
