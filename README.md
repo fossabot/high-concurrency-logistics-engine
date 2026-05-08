@@ -107,7 +107,7 @@ sequenceDiagram
     end
 
     par Async Persistence
-        R->>R: DashMap Broadcast Channel
+        R->>R: DashMap watch Channel
         and
         R-->>C: Location Update
        
