@@ -11,13 +11,15 @@ use axum::{
     response::IntoResponse,
 };
 use std::sync::Arc;
-use tokio::time::{interval, sleep, Duration};
+use tokio::time::{ Duration, interval, sleep};
+
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     Query(params): Query<ConnectParams>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
+
     ws.on_upgrade(move |socket| async move {
         match params.role.as_str() {
             "driver" => handle_driver(socket, state, params.parcel_id).await,
@@ -37,19 +39,24 @@ async fn handle_driver(mut socket: WebSocket, state: Arc<AppState>, parcel_id: S
     loop {
         tokio::select! {
                 msg = socket.recv() => {
+                let start = std::time::Instant::now();
                 idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
                 // Validate the shape before publishing
                 match msg {
                     Some(Ok(Message::Text(text))) => {
                         if let Ok(update) = serde_json::from_str::<LocationUpdate>(&text) {
+
                             if let Err(e) = redis_bus::publish(&state, &parcel_id, &text, &update.latitude, &update.longitude, &update.driver_id).await {
                                 tracing::error!(%parcel_id, "Redis publish error: {e}");
                                 break;
                             }
+                            metrics::histogram!("location_update_duration_seconds", "status" => "success").record(start.elapsed().as_secs_f64());
                             socket.send(Message::Text(r#"{"status": "ok"}"#.into())).await.ok();
                             continue;
                         } else {
                             tracing::warn!("Invalid location payload, dropping {text}");
+                            metrics::histogram!("location_update_duration_seconds", "status" => "parse_error").record(start.elapsed().as_secs_f64());
+                            metrics::counter!("location_update_errors").increment(1);
                             socket.send(Message::Text(r#"{"status": "close"}"#.into())).await.ok();
                             break;
                         }
@@ -66,29 +73,35 @@ async fn handle_driver(mut socket: WebSocket, state: Arc<AppState>, parcel_id: S
                         tracing::warn!("Unknown message type for parcel {parcel_id}");
                         continue;
                     },
-                    None => { tracing::warn!("Invalid location payload, dropping nothing"); socket.send(Message::Text(r#"{"status": "close"}"#.into())).await.ok(); break; }
+                    None => { tracing::warn!("Socket stream closed");
+                            break; }
                 }//match msg
 
             }//msg
                 _ = stream_tick.tick() => {
+                    let start = std::time::Instant::now();
                     tracing::info!("Sending ping for parcel STREAM {parcel_id}");
                 if let Err(e) = redis_bus::redis_stream_publish(&state, &parcel_id).await {
                     tracing::error!("Redis STREAM publish error: {e}");
+                    metrics::counter!("location_update_to_stream_errors").increment(1);
                     socket.send(Message::Text(r#"{"status": "close"}"#.into())).await.ok();
                 } else {
                     tracing::info!("Redis STREAM publish success");
+                    metrics::histogram!("location_update_added_stream_seconds").record(start.elapsed().as_secs_f64());
                     socket.send(Message::Text(r#"{"status": "stream"}"#.into())).await.ok();
                 }
                 continue;
             }
             _ = &mut idle_timeout => {
                 tracing::info!("No activity for 2 minutes, closing connection for parcel {parcel_id}");
+                metrics::counter!("driver_websocket_timeouts_errors").increment(1);
                 socket.send(Message::Text(r#"{"status": "close"}"#.into())).await.ok();
                 break;
             }
 
-        } //tokio: select
-    } //loop
+        }//tokio: select
+
+    }//loop
 
     tracing::info!("Driver disconnected for parcel {parcel_id}");
 }

@@ -16,6 +16,9 @@ pub async fn auth_middleware(
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
+
+    let start = std::time::Instant::now();
+
     let Some(cookie_headers) = req
         .headers()
         .get(header::COOKIE)
@@ -52,7 +55,7 @@ pub async fn auth_middleware(
         })
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    let start = std::time::Instant::now();
+
 
     if let Err(e) = decode_jwt_token(&token, &state.jwt_decoding_key) {
         return Err(e);

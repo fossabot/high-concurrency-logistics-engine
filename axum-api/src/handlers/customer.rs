@@ -50,23 +50,26 @@ pub async fn customer_handler(
             tokio::select! {
                 // A: Handle Internal Messages (From Switchboard)
                 res = rx.changed() => {
+                    let start = std::time::Instant::now();
                     match res {
                         Ok(_) => {
                             // Reset timeout on activity
                             let msg_cloned = rx.borrow_and_update().clone();
                             idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
-
+                             metrics::histogram!("customer_location_from_redis", "status" => "success").record(start.elapsed().as_secs_f64());
                             // Send to User
                             if let Err(_) = socket.send(Message::Text(msg_cloned.clone().into())).await {
+                                                  tracing::error!("Disconnected Customer ");
                                                   break; // Connection closed
-                                              }
-
-
+                             }
 
                              continue // User disconnected
 
                         }
-                        Err(_) => break, // Channel closed
+                        Err(_) => {
+                             metrics::histogram!("customer_location_from_redis", "status" => "redis_error").record(start.elapsed().as_secs_f64());
+                            break;
+                        } // Channel closed
                     }
                 }
 
@@ -91,6 +94,7 @@ pub async fn customer_handler(
                 // C: Handle Timeout
                 _ = &mut idle_timeout => {
                     tracing::warn!("Client idle for 120s. Disconnecting.");
+                    metrics::counter!("customer_websocket_timeouts_errors").increment(1);
                     break;
                 }
             }

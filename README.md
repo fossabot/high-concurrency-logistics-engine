@@ -25,7 +25,7 @@ K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
 ![Baseline Load Test](./assets/gke_loadtest.png)
 ![Grafana Heatmap view from source Postgres](./assets/heatmap_grafana.png)
 
-The system is architected to run on **GKE Autopilot**. 
+The system is architected to run on **Google Kubernetes Engine**. 
 Kubernetes manifests are available in the `/k8s` directory.
 
 **Key Configuration:**
@@ -318,7 +318,7 @@ k6 run loadtests/driver.js
 k6 run loadtests/customer.js
 
 # Or run everything via Docker Compose
-docker compose --profile --rm test run k6-test
+docker compose --rm  run k6-test
 ```
 
 ### Local Development (without Docker)
@@ -392,6 +392,10 @@ axum_api/
 > Full methodology, stages, and raw output with the singleredis node test docker compose: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
 
 ---
+
+Built alone in 6 weeks. No CS degree. No prior job. Deployed on GKE Standard. Load tested to 20,000 
+concurrent WebSocket connections. OOMKill diagnosed and fixed under live load. Everything you see was 
+built, broken, debugged, and fixed by one person.
 
 ## Author
 **Pramod S B**

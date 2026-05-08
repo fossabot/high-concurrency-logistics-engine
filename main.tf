@@ -9,7 +9,7 @@ terraform {
 }
 
 provider "google" {
-  project = var.project_id 
+  project = var.project_id
   region  = "asia-south1"
 }
 
@@ -95,19 +95,15 @@ resource "google_compute_instance" "k6_runner" {
     }
 
     metadata_startup_script = <<-EOF
-    #! /bin/bash
-    sleep 10
-
+    #!/bin/bash
+    exec > /var/log/startup-script.log 2>&1
+    sleep 60
     apt-get update && apt-get install -y wget tar
-
     wget https://github.com/grafana/k6/releases/download/v0.50.0/k6-v0.50.0-linux-amd64.tar.gz
-
     tar -xzf k6-v0.50.0-linux-amd64.tar.gz
-
     sudo mv k6-v0.50.0-linux-amd64/k6 /usr/local/bin/
-
     rm -rf k6-v0.50.0-linux-amd64*
-
+    echo "k6 install complete"
      EOF
 
 
@@ -122,7 +118,7 @@ resource "google_compute_firewall" "allow_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["1.2.3.4/32"] # WARNING:  Good for testing.
+  source_ranges = ["0.0.0.0/0"] # WARNING:  Good for testing.
 }
 
 output "k6_runner_public_ip" {

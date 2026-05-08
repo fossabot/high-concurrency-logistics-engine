@@ -20,7 +20,7 @@ const BASE_URL = __ENV.BASE_URL;
 // Bangalore bounding box
 const START_LAT = 12.9716;
 const START_LNG = 77.5946;
-const PARCEL_COUNT = 5000;
+const PARCEL_COUNT = 10000;
 // ─── Stages: ramp to 10000 VU ──────────────────────────────────────────────────
 export const options = {
   scenarios: {
@@ -28,8 +28,8 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 0,
       stages: [
-        { duration: "2m", target: 5000 }, // gentle start
-        { duration: "4m", target: 5000 }, // soak
+        { duration: "4m", target: 10000 }, // gentle start
+        { duration: "9m", target: 10000 }, // soak
         { duration: "4m", target: 0 }, // ramp down
       ], // cool down
       gracefulStop: "245s", // Higher than your 240s iteration time
@@ -39,11 +39,11 @@ export const options = {
     customers: {
       executor: "ramping-vus",
       startVUs: 0,
-      startTime: "125s",
+      startTime: "245s",
       stages: [
-        { duration: "2m", target: 5000 },
-        { duration: "1m", target: 5000 },
-        { duration: "4m", target: 0 },
+        { duration: "4m", target: 10000 },
+        { duration: "2m", target: 10000 },
+        { duration: "3m", target: 0 },
       ], // cool down
       gracefulStop: "245s", // Higher than your 240s iteration time
       gracefulRampDown: "245s",

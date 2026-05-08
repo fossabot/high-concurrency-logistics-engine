@@ -5,11 +5,12 @@ metadata:
 
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres
   namespace: parcel-app
 spec:
+  serviceName: "postgres-service"
   replicas: 1
   selector:
     matchLabels:
@@ -19,6 +20,8 @@ spec:
       labels:
         app: postgres
     spec:
+      securityContext:
+        fsGroup: 70
       containers:
         - name: postgres
           image: postgres:16-alpine
@@ -49,13 +52,14 @@ spec:
               cpu: "1000m"
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/postgresql
+              mountPath: /var/lib/postgresql/data
+              subPath: postgres
           readinessProbe:
             exec:
               command:
                 - pg_isready
                 - -U
-                - postgres
+                - $(POSTGRES_USER)
             initialDelaySeconds: 10
             periodSeconds: 10
       volumes:
@@ -81,7 +85,7 @@ spec:
     spec:
       containers:
         - name: axum-api
-          image: asia-south1-docker.pkg.dev/project-ec21338a-215e-427c-995/my-repo/parcel-app-trial:v17
+          image: asia-south1-docker.pkg.dev/project-ec21338a-215e-427c-995/my-repo/parcel-app-trial:v18
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -216,10 +220,10 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              memory: "256Mi"
+              memory: "1000Mi"
               cpu: "256m"
             limits:
-              memory: "256Mi"
+              memory: "2000Mi"
               cpu: "256m"
       volumes:
         - name: conf
