@@ -74,7 +74,7 @@ sequenceDiagram
     rect rgb(20, 20, 20)
         Note right of R: The "Hot Path" (< 3ms)
         R->>R: Ed25519 Verify
-        R->>D: Atomic Lua Update
+        R->>D: SPUBLISH, HSET, GEOADD
         D-->>R: Ack (New State)
     end
 
@@ -82,6 +82,8 @@ sequenceDiagram
         R-->>C: 200 OK (Ack)
         and
         R->>R: Send to MPSC Channel
+        R->>D: Atomic Lua Update with deduplication
+        D->>R: Future Unordered latest REDIS STREAMS
         R->>P: Batch Insert (Background Task)
     end
 ```
