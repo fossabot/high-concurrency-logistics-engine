@@ -1,4 +1,6 @@
-# Real-Time Parcel Tracking System (Rust)
+# High-Concurrency WebSocket Engine (Rust/k8s)
+
+Real-Time Parcel Tracking System 
 
 ![Rust](https://img.shields.io/badge/rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![Redis](https://img.shields.io/badge/redis_cluster-DC382D?style=for-the-badge&logo=redis&logoColor=white)
