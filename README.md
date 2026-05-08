@@ -161,7 +161,7 @@ sequenceDiagram
 
 ## Load Test Results (Production Environment)
 
-**Infrastructure:** Google Kubernetes Engine (GKE) Autopilot
+**Infrastructure:** Google Kubernetes Engine (GKE) Standard
 **Cluster Region:** asia-south1 
 **Resources:** 
 - API Pods: 4vCPU / 8GB RAM (Horizontal Pod Autoscaling Enabled)
@@ -171,9 +171,9 @@ sequenceDiagram
 | Metric | Result |
 |---|---|
 | **Concurrent Users** | **10,000** |
-| **Environment** | **GKE Autopilot** |
+| **Environment** | **GKE Standard** |
 | **p50 Latency** | **3ms** |
-| **p95 Latency** | **19ms**  |
+| **p95 Latency** | **12ms**  |
 
 
 
