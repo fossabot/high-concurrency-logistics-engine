@@ -25,17 +25,16 @@ pub async fn customer_handler(
 
         let tx = state.channel_for(&parcel_id);
         tracing::info!("the tx for each {:?}", tx);
-         let mut rx = tx.subscribe();
-         if (tx.receiver_count() == 1){
+
+         if tx.receiver_count() <= 1 {
              if let Err(e) = redis_bus::subscribe_parcel(&state, &parcel_id).await {
                  tracing::error!("Redis SSUBSCRIBE failed: {}", e);
                  return;
              }
          }
+         let mut rx = tx.subscribe();
         // It doesn't matter if the Switchboard is running; if we don't SSUBSCRIBE, Redis won't send anything.
         // This is idempotent. Safe to call 100 times.
-
-
         // 3. Get the Internal Channel
         // We assume state.channel_for uses the .or_insert_with() pattern we discussed.
 
@@ -50,24 +49,22 @@ pub async fn customer_handler(
         loop {
             tokio::select! {
                 // A: Handle Internal Messages (From Switchboard)
-                res = rx.recv() => {
+                res = rx.changed() => {
                     match res {
-                        Ok(msg) => {
+                        Ok(_) => {
                             // Reset timeout on activity
+                            let msg_cloned = rx.borrow_and_update().clone();
                             idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
 
                             // Send to User
-                                     let _ = socket.send(Message::Text(msg.into())).await;
+                            if let Err(_) = socket.send(Message::Text(msg_cloned.clone().into())).await {
+                                                  break; // Connection closed
+                                              }
 
 
 
                              continue // User disconnected
 
-                        }
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                            // CRITICAL FIX: Do not crash. Just skip.
-                            tracing::warn!("User lagging. Skipped {} frames.", n);
-                            continue;
                         }
                         Err(_) => break, // Channel closed
                     }

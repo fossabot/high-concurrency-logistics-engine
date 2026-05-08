@@ -32,6 +32,7 @@ use models::state::{AppState, StreamEvent};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tokio::sync::mpsc;
+use std::time::Duration;
 
 
 #[derive(Serialize)]

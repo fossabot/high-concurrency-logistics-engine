@@ -1,6 +1,20 @@
 # Real-Time Parcel Tracking System (Rust)
 
-![GKE](https://img.shields.io/badge/gke-autopilot-4285F4?logo=google-cloud&logoColor=white)
+![Rust](https://img.shields.io/badge/rust-000000?style=for-the-badge&logo=rust&logoColor=white)
+![Redis](https://img.shields.io/badge/redis_cluster-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Postgres](https://img.shields.io/badge/postgresql-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Nginx](https://img.shields.io/badge/nginx_ingress-009639?style=for-the-badge&logo=nginx&logoColor=white)
+[![GKE](https://shields.io)](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
+![Kubernetes](https://shields.io)
+![Terraform](https://img.shields.io/badge/terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
+![Prometheus](https://img.shields.io/badge/prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![K6](https://img.shields.io/badge/k6_load_testing-7D64FF?style=for-the-badge&logo=k6&logoColor=white)
+![20k VUs](https://img.shields.io/badge/load_tested-20k_concurrent_VUs-brightgreen?style=for-the-badge)
+![2500/s](https://img.shields.io/badge/throughput-2500_updates%2Fsec-brightgreen?style=for-the-badge)
+![p95](https://img.shields.io/badge/p95_latency-24.7ms-brightgreen?style=for-the-badge)
+![checks](https://img.shields.io/badge/check_pass_rate-100%25-brightgreen?style=for-the-badge)
 
 STATUS: Horizontally Scaled Backend with Redis Cluster and Postgresql IN Google Kubernetes Engine
 

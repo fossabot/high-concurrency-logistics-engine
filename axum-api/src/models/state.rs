@@ -3,7 +3,7 @@ use fred::clients::{Pool, SubscriberClient};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use lettre::{AsyncSmtpTransport, Tokio1Executor};
 use sqlx::PgPool;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{watch, mpsc};
 use crate::bus::redis_bus::channel;
 /// One in-process broadcast sender per parcel.
 /// Customers subscribe to this; the Redis listener feeds it.
@@ -13,7 +13,7 @@ pub struct AppState {
     pub redis_subscriber: SubscriberClient,
     pub mailer: AsyncSmtpTransport<Tokio1Executor>,
     pub pool: PgPool,
-    pub parcels: DashMap<String, broadcast::Sender<String>>,
+    pub parcels: DashMap<String, watch::Sender<String>>,
     pub jwt_encoding_key: EncodingKey,
     pub jwt_decoding_key: DecodingKey,
     pub redis_channel: mpsc::Sender<StreamEvent>,
@@ -42,11 +42,11 @@ impl AppState {
     }
 
     /// Get or create the in-process channel for a parcel.
-    pub fn channel_for(&self, parcel_id: &str) -> broadcast::Sender<String> {
+    pub fn channel_for(&self, parcel_id: &str) -> watch::Sender<String> {
         //Only for subsriber pubsub of redis
         self.parcels
             .entry(channel(&parcel_id))
-            .or_insert_with(|| broadcast::channel::<String>(32).0)
+            .or_insert_with(|| watch::channel::<String>("None".to_string()).0)
             .clone()
     }
 }
