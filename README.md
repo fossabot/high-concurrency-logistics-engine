@@ -164,7 +164,7 @@ sequenceDiagram
 **Infrastructure:** Google Kubernetes Engine (GKE) Autopilot
 **Cluster Region:** asia-south1 
 **Resources:** 
-- API Pods: 1.5 vCPU / 2GB RAM (Horizontal Pod Autoscaling Enabled)
+- API Pods: 4vCPU / 8GB RAM (Horizontal Pod Autoscaling Enabled)
 - Redis: Cluster Mode (3 Primaries, 3 Replicas)
 - Ingress: Nginx Ingress Controller with tuned `worker_connections`
 
