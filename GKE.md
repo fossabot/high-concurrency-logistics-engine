@@ -1,4 +1,4 @@
- **Resilience Case Study: Chaos Engineering at 20k VUs**
+ ## Resilience Case Study: Chaos Engineering at 20k VUs 
 
  It’s not enough to build for the best case.So, I architected and tested for the worst
 
@@ -8,12 +8,12 @@
  wanted to to quantify the "Blast Radius" of a backend crash and measure the recovery 
  speed of the Kubernetes control plane.
 
- - Normal test with 20,000 VU 
- - Normal test with 20,000 VU forced eviction of redis node in the cluster.
- - Normal test with 20,000 VU forced eviction of main backend axum-api in the cluster.
+ - **Normal test with 20,000 VU**
+ - **Normal test with 20,000 VU forced eviction of redis node in the cluster**
+ - **Normal test with 20,000 VU forced eviction of main backend axum-api in the cluster**
 
 
- **Normal Test with 20,000 VU**
+ # Normal Test with 20,000 VU
 
  ![Loadtest Screenshot in a GKE](./assets/C20k_iterations.png)
 
@@ -21,7 +21,7 @@
 average are 2560.47 messages per seconds and customer received 624 messages per second.
 With k6 metrics **p(95)=15.62ms**, **p(99)=32.09ms** and **ws_errors=0**
 
-**Normal Test with 20,000 VU forced eviction of redis node in the cluster**
+# Normal Test with 20,000 VU forced eviction of redis node in the cluster
 
 ![Loadtest Screenshot in a GKE](./assets/C20k_Redis_failure.png)
 
@@ -54,7 +54,7 @@ I would implement a Redis Sentinel or Cluster-aware connection pool with a short
 'heartbeat' interval to detect master-failover in milliseconds rather than seconds.
 
 
-**Normal test with 20,000 VU forced eviction of main backend axum-api in the cluster**
+# Normal test with 20,000 VU forced eviction of main backend axum-api in the cluster
 
 ![Loadtest Screenshot in a GKE](./assets/C20k_backend_failure.png)
 
