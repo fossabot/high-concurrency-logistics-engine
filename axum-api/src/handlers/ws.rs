@@ -85,6 +85,7 @@ async fn handle_driver(mut socket: WebSocket, state: Arc<AppState>, parcel_id: S
                     tracing::error!("Redis STREAM publish error: {e}");
                     metrics::counter!("location_update_to_stream_errors").increment(1);
                     socket.send(Message::Text(r#"{"status": "close"}"#.into())).await.ok();
+                    break;
                 } else {
                     tracing::info!("Redis STREAM publish success");
                     metrics::histogram!("location_update_added_stream_seconds").record(start.elapsed().as_secs_f64());

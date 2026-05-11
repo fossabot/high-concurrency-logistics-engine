@@ -51,8 +51,8 @@ resource "google_container_node_pool" "primary_nodes" {
   cluster  = google_container_cluster.primary.name
 
   autoscaling {
-    min_node_count = 1
-    max_node_count = 3
+    min_node_count = 2
+    max_node_count = 4
   }
 
   node_config {
@@ -97,14 +97,14 @@ resource "google_compute_instance" "k6_runner" {
     metadata_startup_script = <<-EOF
     #!/bin/bash
     exec > /var/log/startup-script.log 2>&1
-    sleep 60
+    sleep 120
     apt-get update && apt-get install -y wget tar
     wget https://github.com/grafana/k6/releases/download/v0.50.0/k6-v0.50.0-linux-amd64.tar.gz
     tar -xzf k6-v0.50.0-linux-amd64.tar.gz
     sudo mv k6-v0.50.0-linux-amd64/k6 /usr/local/bin/
     rm -rf k6-v0.50.0-linux-amd64*
     echo "k6 install complete"
-     EOF
+    EOF
 
 
 }

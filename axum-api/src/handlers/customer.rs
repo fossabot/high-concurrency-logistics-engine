@@ -56,7 +56,7 @@ pub async fn customer_handler(
                             // Reset timeout on activity
                             let msg_cloned = rx.borrow_and_update().clone();
                             idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
-                             metrics::histogram!("customer_location_from_redis", "status" => "success").record(start.elapsed().as_secs_f64());
+                            metrics::histogram!("customer_location_from_redis", "status" => "success").record(start.elapsed().as_secs_f64());
                             // Send to User
                             if let Err(_) = socket.send(Message::Text(msg_cloned.clone().into())).await {
                                                   tracing::error!("Disconnected Customer ");
@@ -67,8 +67,8 @@ pub async fn customer_handler(
 
                         }
                         Err(_) => {
-                             metrics::histogram!("customer_location_from_redis", "status" => "redis_error").record(start.elapsed().as_secs_f64());
-                            break;
+                             metrics::histogram!("customer_location_from_redis", "status" => "error").record(start.elapsed().as_secs_f64());
+                            continue;
                         } // Channel closed
                     }
                 }
@@ -81,7 +81,7 @@ pub async fn customer_handler(
                             idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
                             let _ = socket.send(Message::Pong(p)).await;
                         }
-
+                        Some(Ok(_)) => idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120)),
                         Some(Err(e)) => {
                             tracing::error!("Socket Error: {}", e);
                             break;

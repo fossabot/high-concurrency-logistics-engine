@@ -1,6 +1,8 @@
-# High-Concurrency WebSocket Engine (Rust/k8s)
+# High-Concurrency WebSocket Engine in GKE (Rust/k8s)
 
 Real-Time Parcel Tracking System 
+
+High-Concurrency Logistics Engine: Sustained 20k WebSockets on GKE with 0% error rate.
 
 ![Rust](https://img.shields.io/badge/rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![Redis](https://img.shields.io/badge/redis_cluster-DC382D?style=for-the-badge&logo=redis&logoColor=white)
@@ -17,16 +19,37 @@ Real-Time Parcel Tracking System
 ![p95](https://img.shields.io/badge/p95_latency-24.7ms-brightgreen?style=for-the-badge)
 ![checks](https://img.shields.io/badge/check_pass_rate-100%25-brightgreen?style=for-the-badge)
 
-STATUS: Horizontally Scaled Backend with Redis Cluster and Postgresql IN Google Kubernetes Engine
+Status: Fully Functional. Load-tested on GKE Standard. Open for technical deep-dives.
 
 ## Cloud Deployment (GKE)
 
 K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
-![Baseline Load Test](./assets/gke_loadtest.png)
+![Baseline Load Test](./assets/C20k_iterations.png)
 ![Grafana Heatmap view from source Postgres](./assets/heatmap_grafana.png)
+![Grafana Custom metrics from Backend Axum Api](./assets/Custom_metrics_grafana.png)
 
 The system is architected to run on **Google Kubernetes Engine**. 
 Kubernetes manifests are available in the `/k8s` directory.
+
+
+---
+
+## 🛡️ Resilience & Chaos Engineering (GKE)
+> "A system is only as strong as its behavior during a crash."
+
+I didn't just build for the "happy path." I ran three high-pressure chaos experiments on the live GKE cluster at **20,000 VU load** to identify and optimize the system's breaking points.
+
+
+| Experiment | Target | Impact | Result |
+| :--- | :--- | :--- | :--- |
+| **Soak Test** | Full Cluster | 20k VUs / 3.6k msgs/s | **100% Success** (p95: 15ms) |
+| **Redis Failover** | Redis Primary | Node Eviction | **0% Errors** (p99 spike: 1.6s) |
+| **Pod Eviction** | Axum API Pod | Hard Termination | **96.5% Available** (Recovery: 4s) |
+
+### 🚀 [View the Full Chaos Engineering Report (GKE.md)](GKE.md)
+**Deep-dive inside:** How I identified the "Stale Socket" bottleneck and optimized Nginx Ingress for faster failover.
+
+---
 
 **Key Configuration:**
 - **Ingress:** Nginx Controller configured for WebSocket upgrade headers.
@@ -34,7 +57,7 @@ Kubernetes manifests are available in the `/k8s` directory.
 - **Secrets:** Ed25519 keys injected via Kubernetes Secrets.
 
 
-> A production-grade distributed backend for live courier tracking, built in Rust. Handles **10,000 concurrent WebSocket connections** with **100% success rate**
+> A production-grade distributed backend for live courier tracking, built in Rust. Handles **20,000 concurrent WebSocket connections** with **100% success rate**
 
 **Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live tracking in real time.
 
@@ -119,45 +142,14 @@ sequenceDiagram
 
 ---
 
+- [Chaos Test and Normal Test in GKE](GKE.md)
+
 - [Architecture Overview](ARCHITECTURE.md)
 
 - [Architecture Decisions](DECISIONS.md)
 
 - [Mistakes](MISTAKES.md)
 
-
-
-
-## WebSocket Message Format
-
-**Driver → Server (every 2 seconds):**
-```json
-{
-  "parcel_id": "parcel-123",
-  "driver_id": "driver-456",
-  "timestamp": 1714123456,
-  "latitude": 12.9716,
-  "longitude": 77.5946,
-  "status": "picked_up"
-}
-```
-
-**Server → Driver:**
-```json
-{ "status": "ok" }
-```
-
-**Server → Customer (live update):**
-```json
-{
-  "parcel_id": "parcel-123",
-  "driver_id": "driver-123",
-  "latitude": 12.9716,
-  "longitude": 77.5946,
-  "timestamp": 1714123456,
-  "status": "picked_up"
-}
-```
 
 ---
 
@@ -166,24 +158,26 @@ sequenceDiagram
 **Infrastructure:** Google Kubernetes Engine (GKE) Standard
 **Cluster Region:** asia-south1 
 **Resources:** 
-- API Pods: 4vCPU / 8GB RAM (Horizontal Pod Autoscaling Enabled)
+- API Pods: 3 Nodes 4vCPU / 8GB RAM (Horizontal Pod Autoscaling Enabled)
 - Redis: Cluster Mode (3 Primaries, 3 Replicas)
 - Ingress: Nginx Ingress Controller with tuned `worker_connections`
 
-| Metric | Result |
-|---|---|
-| **Concurrent Users** | **10,000** |
-| **Environment** | **GKE Standard** |
-| **p50 Latency** | **3ms** |
-| **p95 Latency** | **12ms**  |
+| Metric               | Result           |
+|----------------------|------------------|
+| **Concurrent Users** | **20,000**       |
+| **Environment**      | **GKE Standard** |
+| **p50 Latency**      | **3ms**          |
+| **p95 Latency**      | **15.62ms**      |
+| **p99 Latency**      | **32.09**        |
 
 
 
 ## Grafana Dashboard
 
 For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
-
-![Architecture Diagram](./assets/heatmap_othersample.png)
+![Architecture Diagram](./assets/Custom_metrics_grafana.png)
+ [dashbpard configuration of grafana in json](dashboard.json)
+![Architecture Diagram](./assets/heatmap_sample.png)
 
 [![Grafana Dashboard]](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
 
@@ -195,154 +189,11 @@ For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 |---|---|---|
 | 5,000 | ✓ Zero errors | Baseline proven |
 | 10,000 | ✓ Zero errors | C10K solved |
-| 15,000 | ✓ 99.9999% success | C15K proven |
+| 20,000 | ✓ 100%  success | C20K solved |
 | ~35,000 | Estimated ceiling | Redis CPU saturates |
-| ~100,000 | Horizontal scaling needed | Redis Cluster + multiple nodes |
-
----
-
-## Environment Variables
-
-Create a `.env` file at the workspace root:
-
-```env
-# Database
-# Remember DATABASE_URL and postgres user details should match
-# Format of the URL postgres://POSTGRES_USER:POSTGRES_PASSWORD@POSTGRES_HOST:5432/POSTGRES_DB
-DATABASE_URL=postgres://prati:Source@host.docker.internal:5432/parcel
-POSTGRES_USER= name
-POSTGRES_PASS=your password
-POSTGRES_HOST=host.docker.internal
-POSTGRES_DB=parcel          
-
-# Redis
-REDIS_URL=redis://redis:6379
-
-# Server
-PORT=8080
-HOST=0.0.0.0
-RUST_LOG=info
-
-# JWT — leave empty on first run
-# Server generates fresh Ed25519 keys and prints them on startup
-# Copy printed values here for all subsequent runs
-JWT_PRIVATE_KEY=
-JWT_PUBLIC_KEY=
-
-# Email verification
-SMTP_USERNAME=your_email@gmail.com
-SMTP_PASSWORD=your_smtp_app_password
-
-# Load testing
-TOKEN_COUNT=15000
-TOKEN_OUTPUT=/loadtests/tokens.txt
-```
-
-**First run JWT key setup:**
-```bash
-# 1. Leave JWT_PRIVATE_KEY and JWT_PUBLIC_KEY empty
-# 2. Start the server — it prints fresh keys:
-#    SAVE THESE TO YOUR .ENV:
-#    JWT_PRIVATE_KEY=abc123...
-#    JWT_PUBLIC_KEY=def456...
-# 3. Copy both values into .env
-# 4. Restart — server loads existing keys
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Rust 1.70+
-- k6 (for load testing)
-
-### Step 1 — Clone and Configure
-
-```bash
-git clone https://github.com/Prati-source/axum_api
-cd axum_api
-cp .env.example .env
-# Edit .env — fill in SMTP credentials, leave JWT keys empty for now
-```
+| ~100,000 | More Horizontal scaling needed | Redis Cluster + multiple nodes |
 
 
-### Step 2 — First Run (Generate JWT Keys)
-
-```bash
-docker compose up --build -d
-# Wait for server to start
-# Copy printed JWT_PRIVATE_KEY and JWT_PUBLIC_KEY into .env
-docker compose down
-```
-
-### Step 3 - Test
-
-```bash
-# Run Integration test of Backend to Ensure Everythings working
-docker compose exec axum-api cargo test
-```
-
-### Step 4 — Full Run
-
-```bash
-docker compose up 
-```
-
-### Step 5 — Verify
-
-```bash
-# Health check
-curl http://localhost:8080/health
-
-# Prometheus targets — both should show UP
-open http://localhost:9090/targets
-
-# Grafana dashboards
-open http://localhost:3001
-# Login: admin / admin
-```
-
-### Step 6 — Run Load Tests
-
-```bash
-# Generate 15,000 Ed25519 signed tokens
-cargo run -p token-gen
-
-# Run driver load test
-k6 run loadtests/driver.js
-
-# Run customer load test  
-k6 run loadtests/customer.js
-
-# Or run everything via Docker Compose
-docker compose --rm  run k6-test
-```
-
-### Local Development (without Docker)
-
-```bash
-# Start Redis Cluster and Postgres via Docker
-# NOTE: REMEMBER SETTING UP LOCALLY REQUIRES DEEP KNOWLEDGE OF ALL CONNECTIONS 
-# with same credentials as in .env or it will not connect
-# Remember to have configuration from deployment yaml or it wont works for ports and commands
-docker compose up redis postgres_db 
-
-#Create a TABLE in PostgreSQL
-sqlx migrate Run
-
-#for temperory variable in UNNEST for Batching 
-cargo sqlx prepare
-
-# Run API locally
-cargo run -p axum-api
-
-# Lint and format
-cargo clippy
-cargo fmt
-```
 
 ---
 
@@ -393,9 +244,6 @@ axum_api/
 
 ---
 
-Built alone in 6 weeks. No CS degree. No prior job. Deployed on GKE Standard. Load tested to 20,000 
-concurrent WebSocket connections. OOMKill diagnosed and fixed under live load. Everything you see was 
-built, broken, debugged, and fixed by one person.
 
 ## Author
 **Pramod S B**

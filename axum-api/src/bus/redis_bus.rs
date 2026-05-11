@@ -7,9 +7,9 @@ use crate::models::{
 };
 use fred::prelude::*;
 use fred::types::geo::{GeoPosition, GeoValue};
-use fred::types::Value;
+use fred::types::{Value, streams::XCap};
 use futures::stream::FuturesUnordered;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::{HashSet, HashMap}, sync::Arc};
 use tokio_stream::StreamExt;
 /// Channel name convention: one channel per parcel
 pub fn channel(parcel_id: &str) -> String {
@@ -190,7 +190,7 @@ pub async fn redis_stream_to_postgres(
         return Ok(());
     }
     let mut tasks = FuturesUnordered::new();
-    let mut finished_keys_vec = Vec::new();
+    let mut finished_id_vec = HashMap::new();
     let mut location_entries: Vec<LocationUpdate> = Vec::with_capacity(keys_vec.len());
     for key in keys_vec {
         let client = state.redis_client.next();
@@ -202,20 +202,32 @@ pub async fn redis_stream_to_postgres(
     }
 
     while let Some((key, result)) = tasks.next().await {
-        finished_keys_vec.push(key);
         if let Ok(entries) = result {
             if let Some(entry_value) = entries.first() {
-                // 1. Try to convert the Redis Value to a &str
-                // 2. Now pass the &str to serde_json
-                if let Some(data) = parse_entry(&entry_value) {
+                if let Ok((data, id)) = parse_entry(&entry_value) {
                     location_entries.push(data);
+                    finished_id_vec.insert(key, id);
                 }
             }
         }
     }
-    insert_batch(&state.pool, &location_entries).await?;
 
+    let mut trim_tasks = FuturesUnordered::new();
+    insert_batch(&state.pool, &location_entries).await?;
     tracing::info!("Batching Postgres Success ");
+    for (key, id) in finished_id_vec {
+        let client = state.redis_client.next();
+        trim_tasks.push(async move {
+                let _: () = client.xtrim(key, XCap::try_from(("MINID", "~", id.clone()))?).await?;
+                Ok::<(), fred::error::Error>(())
+        })
+    }
+
+    while let Some(result) = trim_tasks.next().await {
+        if let Err(e) = result {
+            tracing::error!("Redis xtrim failed: {e}");
+        }
+    }
 
     Ok(())
 }

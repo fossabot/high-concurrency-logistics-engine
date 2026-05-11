@@ -4,8 +4,11 @@
 - I used XREAD to try to get all the data in one iteration but my data was stored in different nodes causing CROSSLOT error.
 - Realising I do not need to send customer every 2 second update rather 5 second from the stream.
 - parsing data from Redis was difficult as payload was  in map of StreamId inside StreamKeys which was inside StreamRangeReply which can confusion.
-- Mistake used format! for making a struct as string for serialization of json.
+-  Ran k6 load test with http:// instead of ws:// for load was debugging the problem in the server rather than k6 script
+- Mistakenly used format! for making a struct as string for serialization of json.
 - unknowingly used std::sync::mpsc cause app to crash.
 - Ephimeral ports were exhausted in windows due to time_wait so created docker compose for testing.
 - GKE initially used my custom Nginx because I thought it didnt have inbuilt like my docker compose and local kubernetes and was getting higher latency.
-- Dashmap use parcelid and i tried to get with a channel(parcelid) and scratched hours why im not receiving message from redis and changed everything then also it was not workking after disceting step by step ive finaly caught it.
+- Dashmap use parcelid and i tried to get with a channel(parcelid) and scratched hours why im not receiving message from redis and changed everything then also it was not workking after dissceting step by step ive finaly caught it.
+- Forgot to Break the loop when Redis Stream was not added a error and continue loop which might cause data loss to the database.
+- In matching incoming ping from the customer, a scenario  was not created causing websocket connection to prematurely to interrupt resulting in EOS in the customer side.

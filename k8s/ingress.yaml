@@ -26,24 +26,6 @@ spec:
 
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-  namespace: ingress-nginx
-  labels:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/part-of: ingress-nginx
-    app.kubernetes.io/version: 1.9.4
-    app.kubernetes.io/component: controller
-data:
-  # Global Engine Tuning
-  max-worker-connections: "65536"
-  max-worker-open-files: "65536"
-  upstream-keepalive-connections: "200"
-  keep-alive: "3600"
-
----
-apiVersion: v1
 kind: Namespace
 metadata:
   labels:
@@ -702,3 +684,32 @@ webhooks:
         resources:
           - ingresses
     sideEffects: None
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.9.4
+    app.kubernetes.io/component: controller
+data:
+  # Global Engine Tuning
+  max-worker-connections: "65536"
+  max-worker-open-files: "65536"
+  worker-processes: "auto"
+
+  # Upstream keepalive — critical for WebSocket at scale
+  upstream-keepalive-connections: "10000"
+  upstream-keepalive-requests: "100000"
+  upstream-keepalive-time: "3600s"
+
+  # Client keepalive
+  keep-alive: "3600"
+  keep-alive-requests: "100000"
+  proxy-buffering: "off"
+  proxy-http-version: "1.1"
+  proxy-read-timeout: "3600"
+  proxy-send-timeout: "3600"

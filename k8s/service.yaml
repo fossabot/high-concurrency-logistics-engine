@@ -10,12 +10,12 @@ metadata:
   name: postgres-service
   namespace: parcel-app
 spec:
+  clusterIP: None
   selector:
     app: postgres
   ports:
     - port: 5432
       targetPort: 5432
-      clusterIP: None
 
 ---
 apiVersion: v1

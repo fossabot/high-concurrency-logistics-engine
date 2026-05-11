@@ -29,7 +29,7 @@ export const options = {
       startVUs: 0,
       stages: [
         { duration: "4m", target: 10000 }, // gentle start
-        { duration: "9m", target: 10000 }, // soak
+        { duration: "10m", target: 10000 }, // soak
         { duration: "4m", target: 0 }, // ramp down
       ], // cool down
       gracefulStop: "245s", // Higher than your 240s iteration time
@@ -43,7 +43,7 @@ export const options = {
       stages: [
         { duration: "4m", target: 10000 },
         { duration: "2m", target: 10000 },
-        { duration: "3m", target: 0 },
+        { duration: "4m", target: 0 },
       ], // cool down
       gracefulStop: "245s", // Higher than your 240s iteration time
       gracefulRampDown: "245s",
@@ -57,7 +57,7 @@ export const options = {
     "ws_errors{scenario:customers}": ["count<100"],
     "location_updates_received{scenario:customers}": ["count>10000"],
 
-    ws_connecting: ["p(95)<30"],
+    ws_connecting: ["p(95)<30", "p(99)<100"],
   },
 };
 
@@ -69,6 +69,15 @@ function getStartPosition(vuId) {
     lat: Number((START_LAT + latOffset).toFixed(6)),
     lng: Number((START_LNG + lngOffset).toFixed(6)),
   };
+  summaryTrendStats: [
+    'avg',
+    'min',
+    'med',
+    'max',
+    'p(90)',
+    'p(95)',
+    'p(99)'
+  ],
 }
 // ─── Lat/lng drift — smooth curved path per driver ────────────────────────────
 

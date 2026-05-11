@@ -46,7 +46,7 @@ spec:
           resources:
             requests:
               memory: "1Gi"
-              cpu: "1000m"
+              cpu: "500m"
             limits:
               memory: "1Gi"
               cpu: "1000m"
@@ -83,9 +83,20 @@ spec:
       labels:
         app: axum-api
     spec:
+      serviceAccountName: job-watcher-sa
+      initContainers:
+        - name: wait-for-redis-init
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for redis-cluster-init to complete..."
+              kubectl wait --for=condition=complete job/redis-cluster-init --timeout=600s
+              echo "Redis init finished. Starting Axum API..."
       containers:
         - name: axum-api
-          image: asia-south1-docker.pkg.dev/project-ec21338a-215e-427c-995/my-repo/parcel-app-trial:v18
+          image: asia-south1-docker.pkg.dev/project-ec21338a-215e-427c-995/my-repo/parcel-app-trial:v22
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -144,7 +155,7 @@ spec:
               cpu: "500m"
             limits:
               memory: "1000Mi"
-              cpu: "500m"
+              cpu: "1000m"
           securityContext:
             allowPrivilegeEscalation: false
           readinessProbe:
@@ -224,7 +235,7 @@ spec:
               cpu: "256m"
             limits:
               memory: "2000Mi"
-              cpu: "256m"
+              cpu: "512m"
       volumes:
         - name: conf
           configMap:
@@ -257,7 +268,7 @@ spec:
             - sh
             - -c
             - |
-              sleep 60 &&
+              sleep 120 &&
               redis-cli --cluster create \
               redis-cluster-0.redis-cluster.parcel-app.svc.cluster.local:6379 \
               redis-cluster-1.redis-cluster.parcel-app.svc.cluster.local:6379 \

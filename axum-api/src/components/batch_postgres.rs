@@ -1,30 +1,42 @@
-use crate::models::location_user::LocationUpdate;
+use crate::models::{location_user::LocationUpdate, error::SyncError};
 use fred::prelude::*;
 use metrics;
 use sqlx::PgPool;
 
-pub fn parse_entry(entry: &Value) -> Option<LocationUpdate> {
-    // 1. Match on the Value enum to find the Array (VecDeque in Fred)
+pub fn parse_entry(entry: &Value) -> Result<(LocationUpdate,String),SyncError> {
     let entry_parts = match entry {
         Value::Array(arr) => arr,
-        _ => return None,
+        _ => return Err(SyncError::Other("None".to_string())),
     };
 
-    // 2. Redis Stream structure: [ID, [Field, Value]]
-    // entry_parts[1] is the fields array
+    let redis_id = match entry_parts.get(0){
+        Some(Value::String(s)) => s.to_string(),
+        _ => return Err(SyncError::Other("None".to_string()))
+    };
+    // Redis Stream structure: [ID, [Field, Value]]
+
     let fields_array = match entry_parts.get(1) {
         Some(Value::Array(fields)) => fields,
-        _ => return None,
+        _ => return Err(SyncError::Other("None".to_string())),
     };
 
-    // 3. fields_array[1] is the actual JSON string
+
     let json_payload = match fields_array.get(1) {
         Some(Value::String(s)) => s,
-        _ => return None,
+        _ => return Err(SyncError::Other("None".to_string())),
     };
 
-    // 4. Finally, parse the JSON into your struct
-    serde_json::from_str::<LocationUpdate>(&json_payload).ok()
+
+    let location = match serde_json::from_str::<LocationUpdate>(&json_payload) {
+        Ok(loc) => loc,
+        Err(e) => {
+            tracing::error!("Failed to parse location payload: {e} — payload: {json_payload}");
+            metrics::counter!("batch_parse_errors").increment(1);
+            return Err(SyncError::Json(e)) // skip this entry, process the rest
+        }
+
+    };
+    return Ok((location, redis_id))
 }
 
 pub async fn insert_batch(db: &PgPool, batch: &[LocationUpdate]) -> Result<(), sqlx::Error> {
