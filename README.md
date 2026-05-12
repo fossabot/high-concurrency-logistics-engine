@@ -25,7 +25,7 @@ Status: Fully Functional. Load-tested on GKE Standard. Open for technical deep-d
 
 K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
 ![Baseline Load Test](./assets/C20k_iterations.png)
-![Grafana Heatmap view from source Postgres](./assets/heatmap_grafana.png)
+![Grafana Heatmap view from source Postgres](./assets/heatmap_othersample.png)
 ![Grafana Custom metrics from Backend Axum Api](./assets/Custom_metrics_grafana.png)
 
 The system is architected to run on **Google Kubernetes Engine**. 
@@ -177,7 +177,7 @@ sequenceDiagram
 For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 ![Architecture Diagram](./assets/Custom_metrics_grafana.png)
  [Dashbpard configuration of grafana in json](dashboard.json)
-![Architecture Diagram](./assets/heatmap_othersample.png)
+![Architecture Diagram](./assets/heatmap_grafana.png)
 
 [![Grafana Dashboard]](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
 
