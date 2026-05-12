@@ -6,6 +6,7 @@ env:
   CARGO_TERM_COLOR: always
   SQLX_OFFLINE: true # Required for sqlx macros without a live DB
   JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
+  JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY }}
 
 jobs:
   test:
