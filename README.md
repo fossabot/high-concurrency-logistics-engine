@@ -31,7 +31,7 @@ Kubernetes manifests are available in the `/k8s` directory.
 
 ---
 
-## 🛡️ Resilience & Chaos Test (GKE)
+##  Resilience & Chaos Test (GKE)
 
  I ran three high-pressure chaos tests in a live GKE cluster at **20,000 VU load** to identify and tried to optimize the system's breaking points.
 
@@ -42,7 +42,7 @@ Kubernetes manifests are available in the `/k8s` directory.
 | **Redis Node Eviction** | Redis Primary Master | Node Termination | **0% Errors** (p99 spike: 1.6s) |
 | **Backend Pod Eviction** | Axum API Pod | Hard Termination | **96.5% Available** (Recovery: 4s) |
 
-### 🚀 [View the Full Chaos Engineering Report (GKE.md)](GKE.md)
+###  [View the Full Chaos Engineering Report (GKE.md)](GKE.md)
 
 **Check inside:** to figure out how I tested and identified the bottlenecks and optimized .
 
