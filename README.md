@@ -176,8 +176,8 @@ sequenceDiagram
 
 For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 ![Architecture Diagram](./assets/Custom_metrics_grafana.png)
- [dashbpard configuration of grafana in json](dashboard.json)
-![Architecture Diagram](./assets/heatmap_sample.png)
+ [Dashbpard configuration of grafana in json](dashboard.json)
+![Architecture Diagram](./assets/heatmap_othersample.png)
 
 [![Grafana Dashboard]](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
 
