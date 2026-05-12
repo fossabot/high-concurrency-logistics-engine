@@ -37,11 +37,11 @@ In this k6 metrics, we can observe our coonection spike in p99 was above 1.68s d
 the 4-second failover window. This data proved that while the Redis Slave  successfully 
 take Master place which resulted in zero errors.
 
-*Fault and Failure*
+*Fault*
 
 I configured only 3 nodes making it heavily rely on more on each redis node and sustain 
 20k VUs. However, the Chaos Test revealed that these long-lived connections
-created a 'stale endpoint' problem during pod eviction.
+created problem during pod eviction.
 
 *Result*
 
@@ -79,10 +79,10 @@ created a 'stale endpoint' problem during pod eviction.
 
 *Result*
 
-NGINX attempted to reuse idle sockets tied to the deleted pod, contributing to the 
+NGINX attempted to direct the idle sockets tied to the deleted pod, contributing to the 
 1,895 errors and the 547ms p99 spike.
 
 *Optimization* 
-To balance both, I would implement a tighter proxy-next-upstream 
+To Create a more viable solution would to implement a tighter proxy-next-upstream 
 policy to ensure that if a keep-alive connection fails, NGINX immediately retries a 
 different pod without counting it as a failed request to the client.

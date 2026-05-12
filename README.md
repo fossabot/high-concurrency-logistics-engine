@@ -1,8 +1,8 @@
-# High-Concurrency WebSocket Engine in GKE (Rust/k8s)
+# Real Time Data WebSocket Engine in GKE (Rust/k8s)
 
 Real-Time Parcel Tracking System 
 
-High-Concurrency Logistics Engine: Sustained 20k WebSockets on GKE with 0% error rate.
+Real-Time Parcel Distribution  Logistics Engine: Sustained 20k WebSockets on GKE with 0% error rate.
 
 ![Rust](https://img.shields.io/badge/rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![Redis](https://img.shields.io/badge/redis_cluster-DC382D?style=for-the-badge&logo=redis&logoColor=white)
@@ -14,53 +14,43 @@ High-Concurrency Logistics Engine: Sustained 20k WebSockets on GKE with 0% error
 ![Prometheus](https://img.shields.io/badge/prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
 ![Grafana](https://img.shields.io/badge/grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 ![K6](https://img.shields.io/badge/k6_load_testing-7D64FF?style=for-the-badge&logo=k6&logoColor=white)
-![20k VUs](https://img.shields.io/badge/load_tested-20k_concurrent_VUs-brightgreen?style=for-the-badge)
-![2500/s](https://img.shields.io/badge/throughput-2500_updates%2Fsec-brightgreen?style=for-the-badge)
-![p95](https://img.shields.io/badge/p95_latency-24.7ms-brightgreen?style=for-the-badge)
-![checks](https://img.shields.io/badge/check_pass_rate-100%25-brightgreen?style=for-the-badge)
 ![Github Actions](https://img.shields.io/badge/Github-Actions-brightblue?style=for-the-badge)
 
-Status: Fully Functional. Load-tested on GKE Standard. Open for technical deep-dives.
+Status: Fully Operated Load-tested on  GKE Standard Kubernetes. Open for technical deep-dives.
 
 ## Cloud Deployment (GKE)
 
 K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
-![Baseline Load Test](./assets/C20k_iterations.png)
+![C20k Concurrent User Load Test](./assets/C20k_iterations.png)
 ![Grafana Heatmap view from source Postgres](./assets/heatmap_othersample.png)
 ![Grafana Custom metrics from Backend Axum Api](./assets/Custom_metrics_grafana.png)
 
-The system is architected to run on **Google Kubernetes Engine**. 
+The system has been Operated and run on **Google Kubernetes Engine**. 
 Kubernetes manifests are available in the `/k8s` directory.
 
 
 ---
 
-## 🛡️ Resilience & Chaos Engineering (GKE)
-> "A system is only as strong as its behavior during a crash."
+## 🛡️ Resilience & Chaos Test (GKE)
 
-I didn't just build for the "happy path." I ran three high-pressure chaos experiments on the live GKE cluster at **20,000 VU load** to identify and optimize the system's breaking points.
+ I ran three high-pressure chaos tests in a live GKE cluster at **20,000 VU load** to identify and tried to optimize the system's breaking points.
 
 
 | Experiment | Target | Impact | Result |
 | :--- | :--- | :--- | :--- |
-| **Soak Test** | Full Cluster | 20k VUs / 3.6k msgs/s | **100% Success** (p95: 15ms) |
-| **Redis Failover** | Redis Primary | Node Eviction | **0% Errors** (p99 spike: 1.6s) |
-| **Pod Eviction** | Axum API Pod | Hard Termination | **96.5% Available** (Recovery: 4s) |
+| **Soak or Normal Test** | Full Cluster | 20k VUs / 3.6k msgs/s | **100% Success** (p95: 15ms) |
+| **Redis Node Eviction** | Redis Primary Master | Node Termination | **0% Errors** (p99 spike: 1.6s) |
+| **Backend Pod Eviction** | Axum API Pod | Hard Termination | **96.5% Available** (Recovery: 4s) |
 
 ### 🚀 [View the Full Chaos Engineering Report (GKE.md)](GKE.md)
-**Deep-dive inside:** How I identified the "Stale Socket" bottleneck and optimized Nginx Ingress for faster failover.
 
----
-
-**Key Configuration:**
-- **Ingress:** Nginx Controller configured for WebSocket upgrade headers.
-- **HPA:** CPU-based autoscaling triggers at 70% utilization.
-- **Secrets:** Ed25519 keys injected via Kubernetes Secrets.
+**Check inside:** to figure out how I tested and identified the bottlenecks and optimized .
 
 
-> A production-grade distributed backend for live courier tracking, built in Rust. Handles **20,000 concurrent WebSocket connections** with **100% success rate**
 
-**Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live tracking in real time.
+A production-grade distributed backend simulation for live courier tracking, built in Rust. Handles **20,000 concurrent WebSocket connections** with **100% success rate**
+
+**Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live location tracking in real time and database storing the coordinates of driver every 10 seconds.
 
 ---
 
@@ -73,13 +63,13 @@ Parcel delivery platforms have a hard real-time problem:
 - Systems that must not lose a position event or process one twice
 - Infrastructure that must scale horizontally without duplicate processing
 
-This system solves all four end to end.
+This system tries to solves all four end to end.
 
 ## Architecture
 
-The system uses an asynchronous, non-blocking architecture to decouple high-frequency ingestion from database persistence.  
+The system uses an asynchronous, non-blocking tokio architecture to decouple high-frequency ingestion with redis cluster and send them to the  database persistence.  
 
-I used Rust's ownership model eliminates data races across 10k concurrent handlers at compile time — not at runtime.
+I used mainly Rust's ownership model as it  eliminates data races across 10k concurrent handlers at compile time — not at runtime.
 
 DRIVER LOGIC
 ```mermaid
@@ -159,7 +149,7 @@ sequenceDiagram
 **Infrastructure:** Google Kubernetes Engine (GKE) Standard
 **Cluster Region:** asia-south1 
 **Resources:** 
-- API Pods: 3 Nodes 4vCPU / 8GB RAM (Horizontal Pod Autoscaling Enabled)
+- API Pods: 2-4 Nodes 4vCPU / 8GB RAM (Horizontal Pod Autoscaling Enabled)
 - Redis: Cluster Mode (3 Primaries, 3 Replicas)
 - Ingress: Nginx Ingress Controller with tuned `worker_connections`
 
@@ -191,57 +181,18 @@ For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 | 5,000 | ✓ Zero errors | Baseline proven |
 | 10,000 | ✓ Zero errors | C10K solved |
 | 20,000 | ✓ 100%  success | C20K solved |
-| ~35,000 | Estimated ceiling | Redis CPU saturates |
-| ~100,000 | More Horizontal scaling needed | Redis Cluster + multiple nodes |
+| ~35,000 | Estimated ceiling | Multiple Redis Nodes |
+| ~100,000 | More Horizontal scaling needed | Multiple Redis Nodes + Multiple Backend Pods |
 
 
 
 ---
 
-## Project Structure
-
-```
-axum_api/
-├── Cargo.toml              ← workspace root (resolver = "2")
-├── .env                    ← environment variables
-├── .env.example            ← template for new contributors
-├── docker-compose.yml      ← full stack orchestration
-├── prometheus.yml          ← Prometheus scrape config
-├── axum-api/               ← main API
-│   ├── Cargo.toml
-│   ├── Dockerfile
-│   ├── tests/auth_test.rs
-│   └── src/
-|       ├── middleware/auth  <- Jwt token verification
-│       ├── main.rs         ← server startup, router, AppState
-│       ├── handlers/
-│       │   ├── ws.rs       ← driver WebSocket handler for driver
-│       │   ├── auth.rs     ← register, login, verify
-│       │   └── customer.rs ← customer live tracking handler
-│       ├── bus/redis_bus/   ← Redis Stream, Lua scripts, consumer group
-│       ├── models/          ← SQLx database models, custom error models and State models
-│       └──components  
-│              ├──password     ← Ed25519 JWT token generator for load testing
-│              ├──background   ← Batch operations running for postgres
-│              ├──batch_postgres  ← Sqlx Unnest and parse StreamId to location update
-│              └──redis_read_background  ← Redis Subscriber Message Receiving  operations running for postgres
-├── token-gen/                 
-│   ├── Cargo.toml
-|   ├──Dockerfile
-│   └── src/
-│       └── main.rs
-└── loadtests/              ← k6 load test scripts
-    ├── driver.js           ← driver WebSocket load test
-    └── customer.js        ← customer tracking load test
-         token-output.txt   TOKENS Stored here
-         
-```
-
 ## Load Test Results
 ## LOCALY RUN INITIAL TEST RESULTS 
-> Full methodology, stages, and raw output with the cluster test in docker compose: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
+> Full test and raw output with the cluster test in docker compose: [CLUSTERLOADTEST.md](./CLUSTERLOADTEST.md)
 
-> Full methodology, stages, and raw output with the singleredis node test docker compose: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
+> Full test and raw output with the single redis node test docker compose: [SINGLELOADTEST.md](./SINGLELOADTEST.md)
 
 ---
 
