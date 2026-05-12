@@ -5,6 +5,7 @@ on: [push, pull_request]
 env:
   CARGO_TERM_COLOR: always
   SQLX_OFFLINE: true # Required for sqlx macros without a live DB
+  JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
 
 jobs:
   test:
