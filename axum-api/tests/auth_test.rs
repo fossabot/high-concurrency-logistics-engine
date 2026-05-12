@@ -43,7 +43,7 @@ async fn test_jwt_rejects_tampered_token() {
     let pub_bytes = hex::decode(&jwt_public_key).expect("invalid hex");
     let jwt_decoding_key = DecodingKey::from_ed_der(&pub_bytes);
 
-    let tampered_token = "eyJhbGciOiJFZERTQSJ9.tampered.signature";
+    let tampered_token = "7cfae4d7b2781b4d0e6c5188fba243f11c8d035ea6ba9272338bc4efc9502b4d99c42a5c120fb3dbde65287fa3bb135e80dc6df7113aeefb210dc411bc23e0ad";
 
     let result = decode_jwt_token(tampered_token, &jwt_decoding_key);
     assert!(result.is_err());
