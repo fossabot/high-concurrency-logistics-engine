@@ -16,7 +16,7 @@ pub async fn verify_handler(
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
             println!("Could not send email: {e}");
-            return Err(SyncError::Other(e.to_string()));
+            Err(SyncError::Other(e.to_string()))
         }
     }
 }

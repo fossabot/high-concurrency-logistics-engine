@@ -15,7 +15,6 @@ async fn test_jwt_token() {
     let jwt_encoding_key = EncodingKey::from_ed_der(&priv_bytes);
     let jwt_decoding_key = DecodingKey::from_ed_der(&pub_bytes);
     let user_id = "abcd 568a djfn";
-    let user_role = "Driver";
     let exp = OffsetDateTime::now_utc() + Duration::seconds(86400);
     let claims = Claims {
         sub: user_id.to_string(),

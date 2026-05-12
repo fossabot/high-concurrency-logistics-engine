@@ -35,5 +35,5 @@ pub async fn check_ed_keys() -> (Vec<u8>, Vec<u8>) {
         }
     };
 
-    return (priv_bytes, pub_bytes);
+    (priv_bytes, pub_bytes)
 }

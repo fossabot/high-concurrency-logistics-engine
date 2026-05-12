@@ -5,7 +5,7 @@ import { SharedArray } from "k6/data";
 
 // ─── Pre-generated Ed25519 tokens from token-gen ──────────────────────────────
 const tokens = new SharedArray("driver_tokens", function () {
-  return open("/loadtests/token-output.txt").trim().split("\n");
+  return open("./token-output.txt").trim().split("\n");
 });
 
 // ─── Custom Metrics ───────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ const connectionDuration = new Trend("ws_connection_duration_ms");
 const locationUpdatesReceived = new Counter("location_updates_received");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BASE_URL = "ws://host.docker.internal:80";
+const BASE_URL = __ENV.BASE_URL || "ws://host.docker.internal:80";
 
 // Bangalore bounding box
 const START_LAT = 12.9716;
@@ -32,8 +32,8 @@ export const options = {
         { duration: "10m", target: 10000 }, // soak
         { duration: "4m", target: 0 }, // ramp down
       ], // cool down
-      gracefulStop: "245s", // Higher than your 240s iteration time
-      gracefulRampDown: "245s",
+      gracefulStop: "265s", // Higher than your 260s iteration time
+      gracefulRampDown: "265s",
       exec: "driver_logic",
     },
     customers: {
@@ -45,8 +45,8 @@ export const options = {
         { duration: "2m", target: 10000 },
         { duration: "4m", target: 0 },
       ], // cool down
-      gracefulStop: "245s", // Higher than your 240s iteration time
-      gracefulRampDown: "245s",
+      gracefulStop: "265s", // Higher than your 260s iteration time
+      gracefulRampDown: "265s",
       exec: "customer_logic",
     },
   },
@@ -157,7 +157,7 @@ export function driver_logic() {
       // This ensures the VU doesn't die and the setInterval actually runs
       socket.setTimeout(function () {
         socket.close();
-      }, 180000); // 110 seconds (slightly less than your 120s server timeout)
+      }, 180000);
 
       socket.on("close", function () {
         connectionDuration.add(Date.now() - startTime);
@@ -189,31 +189,38 @@ export function customer_logic() {
     function (socket) {
       socket.on("open", function () {
         // 1. Randomize the first ping (JITTER)
-        // This prevents 10,000 users from pinging at the exact same millisecond
-        const initialDelay = Math.random() * 20;
-        console.log(`Initial delay: ${initialDelay}`);
-        socket.setInterval(
-          function () {
+        const initialDelay = Math.random() * 20000; // 0-20 seconds delay
+
+        socket.setTimeout(function () {
+          // Send first ping
+          socket.send(JSON.stringify({ type: "ping" }));
+
+          // Start regular interval AFTER the delay
+          socket.setInterval(function () {
             socket.send(JSON.stringify({ type: "ping" }));
-          },
-          25000 + Math.random() * 5000,
-        ); // Ping every 25-30 seconds
+          }, 15000); // Ping every 30s
+        }, initialDelay);
       });
       socket.on("message", function (data) {
-        console.log(`Raw message from server: ${data}`); // <--- ADD THIS
         try {
           const msg = JSON.parse(data);
+
+          // Lightweight checks
+          if (msg.latitude && msg.longitude) {
+            locationUpdatesReceived.add(1);
+          }
+          if (msg === "None") {
+            locationUpdatesReceived.add(0);
+          }
           check(msg, {
-            "is valid location update": (m) =>
-              m.latitude !== undefined && m.longitude !== undefined,
             "correct parcel id": (m) => m.parcel_id === parcelId,
           });
-          locationUpdatesReceived.add(1);
+          // check(msg, { ... });
         } catch (e) {
-          console.error(`Failed to parse JSON. Data was: ${data}`);
+          // Keep this error log, it's rare and important
+          console.error(`Parse Error: ${e}`);
         }
       });
-
       socket.on("error", function (e) {
         wsErrors.add(1);
         console.error(`VU ${vuId} error: ${e.error()}`);

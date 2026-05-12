@@ -1,17 +1,17 @@
-use crate::models::{location_user::LocationUpdate, error::SyncError};
+use crate::models::{error::SyncError, location_user::LocationUpdate};
 use fred::prelude::*;
 use metrics;
 use sqlx::PgPool;
 
-pub fn parse_entry(entry: &Value) -> Result<(LocationUpdate,String),SyncError> {
+pub fn parse_entry(entry: &Value) -> Result<(LocationUpdate, String), SyncError> {
     let entry_parts = match entry {
         Value::Array(arr) => arr,
         _ => return Err(SyncError::Other("None".to_string())),
     };
 
-    let redis_id = match entry_parts.get(0){
+    let redis_id = match entry_parts.first() {
         Some(Value::String(s)) => s.to_string(),
-        _ => return Err(SyncError::Other("None".to_string()))
+        _ => return Err(SyncError::Other("None".to_string())),
     };
     // Redis Stream structure: [ID, [Field, Value]]
 
@@ -20,23 +20,20 @@ pub fn parse_entry(entry: &Value) -> Result<(LocationUpdate,String),SyncError> {
         _ => return Err(SyncError::Other("None".to_string())),
     };
 
-
     let json_payload = match fields_array.get(1) {
         Some(Value::String(s)) => s,
         _ => return Err(SyncError::Other("None".to_string())),
     };
 
-
-    let location = match serde_json::from_str::<LocationUpdate>(&json_payload) {
+    let location = match serde_json::from_str::<LocationUpdate>(json_payload) {
         Ok(loc) => loc,
         Err(e) => {
             tracing::error!("Failed to parse location payload: {e} — payload: {json_payload}");
             metrics::counter!("batch_parse_errors").increment(1);
-            return Err(SyncError::Json(e)) // skip this entry, process the rest
+            return Err(SyncError::Json(e)); // skip this entry, process the rest
         }
-
     };
-    return Ok((location, redis_id))
+    Ok((location, redis_id))
 }
 
 pub async fn insert_batch(db: &PgPool, batch: &[LocationUpdate]) -> Result<(), sqlx::Error> {
@@ -88,7 +85,7 @@ pub async fn insert_batch(db: &PgPool, batch: &[LocationUpdate]) -> Result<(), s
             // Error! Record a failure metric for your Grafana dashboard
             metrics::counter!("postgres_errors_total").increment(1);
             tracing::warn!("Database error: {:?}", e);
-            return Err(e);
+            Err(e)
         }
     }
 }

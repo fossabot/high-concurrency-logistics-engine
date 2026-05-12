@@ -5,10 +5,10 @@ use axum::extract::ws::Message;
 use axum::extract::Query;
 use axum::extract::{ws::WebSocketUpgrade, State};
 use axum::response::IntoResponse;
-use std::sync::Arc;
-use tokio::time::{sleep, Duration};
 use fred::prelude::*;
 use redis_bus::channel;
+use std::sync::Arc;
+use tokio::time::{sleep, Duration};
 
 pub async fn customer_handler(
     ws: WebSocketUpgrade,
@@ -58,10 +58,10 @@ pub async fn customer_handler(
                             idle_timeout.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(120));
                             metrics::histogram!("customer_location_from_redis", "status" => "success").record(start.elapsed().as_secs_f64());
                             // Send to User
-                            if let Err(_) = socket.send(Message::Text(msg_cloned.clone().into())).await {
+                            if socket.send(Message::Text(msg_cloned.clone().into())).await.is_err(){
                                                   tracing::error!("Disconnected Customer ");
                                                   break; // Connection closed
-                             }
+                             };
 
                              continue // User disconnected
 
@@ -87,7 +87,6 @@ pub async fn customer_handler(
                             break;
                         }
                         None => break, // Stream closed
-                        _ =>  continue // Ignore other messages
                     }
                 }
 
@@ -110,6 +109,4 @@ pub async fn customer_handler(
             }
          }
     })
-
-
 }

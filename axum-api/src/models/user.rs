@@ -26,6 +26,7 @@ pub enum UserRole {
     Customer,
 }
 
+#[allow(clippy::inherent_to_string)]
 impl UserRole {
     pub fn to_string(&self) -> String {
         match self {

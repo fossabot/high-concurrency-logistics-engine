@@ -7,9 +7,12 @@ use crate::models::{
 };
 use fred::prelude::*;
 use fred::types::geo::{GeoPosition, GeoValue};
-use fred::types::{Value, streams::XCap};
+use fred::types::{streams::XCap, Value};
 use futures::stream::FuturesUnordered;
-use std::{collections::{HashSet, HashMap}, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio_stream::StreamExt;
 /// Channel name convention: one channel per parcel
 pub fn channel(parcel_id: &str) -> String {
@@ -29,6 +32,8 @@ fn history_key(parcel_id: &str) -> String {
     format!("{{{}}}:history", parcel_id)
 }
 
+#[allow(dead_code)]
+#[allow(clippy::useless_format)]
 fn stream_registry() -> String {
     format!("parcel:global:stream_registry")
 }
@@ -93,27 +98,23 @@ pub async fn last_position(
     {
         Ok(Some(val)) => {
             tracing::info!("Got last position: {}", val);
-            return Ok(Some(val));
+            Ok(Some(val))
         }
         Ok(None) => {
             tracing::info!("No last position for {}", parcel_id);
-            return Ok(None);
+            Ok(None)
         }
         Err(e) => {
             tracing::error!("hget error for {}: {:?}", parcel_id, e);
-            return Err(e.into());
+            Err(e.into())
         }
     }
 }
 
-
-
-pub async fn subscribe_parcel( state: &Arc<AppState>, parcel_id: &str)-> Result<(),SyncError> {
+pub async fn subscribe_parcel(state: &Arc<AppState>, parcel_id: &str) -> Result<(), SyncError> {
     let client = state.redis_subscriber.clone();
-     client.ssubscribe(channel(parcel_id)).await?;
-
-
-     Ok(())
+    client.ssubscribe(channel(parcel_id)).await?;
+    Ok(())
 }
 
 /// Publish a message to the Redis stream for the given parcel after a delay
@@ -160,10 +161,10 @@ pub async fn redis_stream_publish(state: &Arc<AppState>, parcel_id: &str) -> Res
         .await?;
     if result == 0 {
         tracing::debug!("Skipping duplicate history for {}", parcel_id);
-        return Ok(());
+        Ok(())
     } else if result == -1 {
         tracing::warn!("Position hash missing for {}", parcel_id);
-        return Ok(());
+        Ok(())
     } else if result == 1 {
         let _: i64 = state
             .redis_client
@@ -174,9 +175,9 @@ pub async fn redis_stream_publish(state: &Arc<AppState>, parcel_id: &str) -> Res
             .send(StreamEvent::parcel_stream(&history_key(parcel_id)))
             .await?;
         tracing::info!("Lua is USED HEREE");
-        return Ok(());
+        Ok(())
     } else {
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -204,7 +205,7 @@ pub async fn redis_stream_to_postgres(
     while let Some((key, result)) = tasks.next().await {
         if let Ok(entries) = result {
             if let Some(entry_value) = entries.first() {
-                if let Ok((data, id)) = parse_entry(&entry_value) {
+                if let Ok((data, id)) = parse_entry(entry_value) {
                     location_entries.push(data);
                     finished_id_vec.insert(key, id);
                 }
@@ -218,8 +219,10 @@ pub async fn redis_stream_to_postgres(
     for (key, id) in finished_id_vec {
         let client = state.redis_client.next();
         trim_tasks.push(async move {
-                let _: () = client.xtrim(key, XCap::try_from(("MINID", "~", id.clone()))?).await?;
-                Ok::<(), fred::error::Error>(())
+            let _: () = client
+                .xtrim(key, XCap::try_from(("MINID", "~", id.clone()))?)
+                .await?;
+            Ok::<(), fred::error::Error>(())
         })
     }
 
@@ -260,12 +263,11 @@ pub async fn publish_otp(otp: &u32, user: &User, state: &Arc<AppState>) -> Resul
 pub async fn read_otp(otp: &u32, email: &str, state: &Arc<AppState>) -> Result<(), SyncError> {
     let client = state.redis_client.next();
     let otp_str: Option<String> = client.get(otp_key(email)).await?;
-    let otp_user: Option<u32> = otp_str.map(|s| s.parse().ok()).flatten();
+    let otp_user: Option<u32> = otp_str.and_then(|s| s.parse().ok());
     println!("otp_user: {:?}, otp: {:?}", otp_user, otp);
     if otp_user == Some(*otp) {
         let user_str: Option<String> = client.get(pending_user(email)).await?;
-        let user: User =
-            serde_json::from_str(&user_str.unwrap_or_default()).map_err(|e| SyncError::Json(e))?;
+        let user: User = serde_json::from_str(&user_str.unwrap_or_default())?;
         let user_role: String = user.role.to_string();
         tracing::info!("OTP verified for email: {:?}", user);
         let pipe = client.pipeline();
@@ -273,12 +275,12 @@ pub async fn read_otp(otp: &u32, email: &str, state: &Arc<AppState>) -> Result<(
         pipe.del::<(), _>(pending_user(email)).await?;
         let _: () = pipe.all().await?;
         let x = sqlx::query("INSERT INTO users (id, name, email, password, created_at, role AS text) VALUES ($1, $2, $3, $4, $5, $6)")
-            .bind(&user.id)
-            .bind(&user.name)
-            .bind(&user.email)
-            .bind(&user.password)
-            .bind(&user.created_at)
-            .bind(&user_role)
+            .bind(user.id)
+            .bind(user.name)
+            .bind(user.email)
+            .bind(user.password)
+            .bind(user.created_at)
+            .bind(user_role)
             .execute(&state.pool)
             .await?;
         tracing::info!("User inserted into database: {:?}", x);

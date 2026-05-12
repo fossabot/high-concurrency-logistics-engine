@@ -55,6 +55,8 @@ impl IntoResponse for SyncError {
     }
 }
 
+#[allow(dead_code)]
+#[allow(clippy::useless_format)]
 #[derive(thiserror::Error, Debug)] //Never Used I am thinking so restricting Users Not impliment
 pub enum AuthError {
     #[error("Unauthorized")]

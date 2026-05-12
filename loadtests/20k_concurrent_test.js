@@ -32,8 +32,8 @@ export const options = {
         { duration: "10m", target: 10000 }, // soak
         { duration: "4m", target: 0 }, // ramp down
       ], // cool down
-      gracefulStop: "245s", // Higher than your 240s iteration time
-      gracefulRampDown: "245s",
+      gracefulStop: "265s", // Higher than your 260s iteration time
+      gracefulRampDown: "265s",
       exec: "driver_logic",
     },
     customers: {
@@ -45,8 +45,8 @@ export const options = {
         { duration: "2m", target: 10000 },
         { duration: "4m", target: 0 },
       ], // cool down
-      gracefulStop: "245s", // Higher than your 240s iteration time
-      gracefulRampDown: "245s",
+      gracefulStop: "265s", // Higher than your 260s iteration time
+      gracefulRampDown: "265s",
       exec: "customer_logic",
     },
   },
@@ -154,7 +154,6 @@ export function driver_logic() {
       socket.on("ping", function () {
         socket.pong(); // explicitly send pong back
       });
-      // This ensures the VU doesn't die and the setInterval actually runs // 110 seconds (slightly less than your 120s server timeout)
 
       socket.on("close", function () {
         connectionDuration.add(Date.now() - startTime);
@@ -201,7 +200,6 @@ export function customer_logic() {
       });
 
       socket.on("message", function (data) {
-        // 2. FIX: REMOVED console.log
         // Only log errors, never success data in a load test.
         try {
           const msg = JSON.parse(data);
@@ -216,7 +214,6 @@ export function customer_logic() {
           check(msg, {
             "correct parcel id": (m) => m.parcel_id === parcelId,
           });
-          // Optional: detailed check (Costly at 10k users, use sparingly)
           // check(msg, { ... });
         } catch (e) {
           // Keep this error log, it's rare and important

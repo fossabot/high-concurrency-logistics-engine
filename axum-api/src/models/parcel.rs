@@ -15,6 +15,8 @@ pub struct Parcel {
     pub from_lon: f64,
 }
 
+#[allow(dead_code)]
+#[allow(clippy::useless_format)]
 impl Parcel {
     pub fn validate(&self) -> bool {
         if self.id.is_empty()

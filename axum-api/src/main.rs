@@ -16,10 +16,9 @@ mod bus;
 mod components;
 mod handlers;
 mod middlewares;
-use axum_prometheus::{metrics_exporter_prometheus, PrometheusMetricLayer};
 use components::background::background_to_postgres;
 use components::password::check_ed_keys;
-use components::{setup_redis::setup_redis, redis_read_background};
+use components::{redis_read_background, setup_redis::setup_redis};
 use dotenvy::dotenv;
 use handlers::{
     customer::customer_handler, login::login_handler, register::register_handler,
@@ -31,9 +30,8 @@ use middlewares::auth::auth_middleware;
 use models::state::{AppState, StreamEvent};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use tokio::sync::mpsc;
 use std::time::Duration;
-
+use tokio::sync::mpsc;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -59,8 +57,7 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
-    let redis_node =
-        std::env::var("REDIS_NODE").expect(" redis must be must be set in .env");
+    let redis_node = std::env::var("REDIS_NODE").expect(" redis must be must be set in .env");
     let postgres_name =
         std::env::var("POSTGRES_USER").expect("POSTGRES_USERNAME must be set in .env");
     let postgres_password =
@@ -143,9 +140,8 @@ async fn main() {
 
     let background_state2 = state.clone();
     tokio::spawn(async move {
-            redis_read_background::start_global_redis(background_state2).await;
+        redis_read_background::start_global_redis(background_state2).await;
     });
-
 
     let public_routes = Router::new()
         .route("/health", get(health))

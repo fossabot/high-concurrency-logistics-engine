@@ -40,7 +40,7 @@ pub async fn register_handler(
         Ok(_) => Ok(StatusCode::OK),
         Err(e) => {
             println!("Could not send email: {e}");
-            return Err(SyncError::Other(e.to_string()));
+            Err(SyncError::Other(e.to_string()))
         }
     }
 }

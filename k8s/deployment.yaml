@@ -96,7 +96,7 @@ spec:
               echo "Redis init finished. Starting Axum API..."
       containers:
         - name: axum-api
-          image: asia-south1-docker.pkg.dev/project-ec21338a-215e-427c-995/my-repo/parcel-app-trial:v22
+          image: asia-south1-docker.pkg.dev/project-ec21338a-215e-427c-995/my-repo/parcel-app-trial:v23
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

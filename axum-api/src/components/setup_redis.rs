@@ -5,7 +5,6 @@ use fred::types::{config::ClusterDiscoveryPolicy, RespVersion};
 use std::time::Duration;
 
 pub async fn setup_redis(redis_node: String) -> Result<(Pool, SubscriberClient), SyncError> {
-
     let config = Config {
         server: ServerConfig::Clustered {
             hosts: vec![Server::new(redis_node, 6379)],

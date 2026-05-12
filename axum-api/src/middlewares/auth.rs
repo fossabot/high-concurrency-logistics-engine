@@ -8,7 +8,6 @@ use axum::{
     response::Response,
 };
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use metrics;
 use std::sync::Arc;
 
 pub async fn auth_middleware(
@@ -16,9 +15,7 @@ pub async fn auth_middleware(
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-
     let start = std::time::Instant::now();
-
     let Some(cookie_headers) = req
         .headers()
         .get(header::COOKIE)
@@ -39,15 +36,15 @@ pub async fn auth_middleware(
                 return None;
             }
 
-            Some(parts.next()?)
+            parts.next()
         })
         .or_else(|| {
             cookie_headers.split(';').find_map(|c| {
                 let mut parts = c.trim().splitn(2, '=');
-                let name = parts.next()?;
-                let value = parts.next()?;
-                if name == "token" {
-                    Some(value)
+                let name = parts.next();
+                let value = parts.next();
+                if name == Some("token") {
+                    value
                 } else {
                     None
                 }
@@ -55,11 +52,7 @@ pub async fn auth_middleware(
         })
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-
-
-    if let Err(e) = decode_jwt_token(&token, &state.jwt_decoding_key) {
-        return Err(e);
-    }
+    decode_jwt_token(token, &state.jwt_decoding_key)?;
     // In Grafana, you'll see this in microseconds/milliseconds
     metrics::histogram!("jwt_sign_duration_seconds").record(start.elapsed().as_secs_f64());
 
@@ -69,7 +62,7 @@ pub async fn auth_middleware(
 pub fn decode_jwt_token(token: &str, jwt_decoding_key: &DecodingKey) -> Result<Claims, StatusCode> {
     let mut validation = Validation::new(Algorithm::EdDSA);
     validation.set_audience(&["parcel-api"]);
-    decode::<Claims>(&token, &jwt_decoding_key, &validation)
+    decode::<Claims>(&token, jwt_decoding_key, &validation)
         .map(|data| data.claims)
         .map_err(|e| {
             tracing::warn!("token decode error: {:?}", e);
