@@ -74,7 +74,7 @@ I used mainly Rust's ownership model as it  eliminates data races across 10k con
 DRIVER LOGIC
 ```mermaid
 sequenceDiagram
-    participant C as Driver (5k)
+    participant C as Driver (10k)
     participant N as Ingress-Nginx (LB)
     participant R as Rust (Axum)
     participant D as Redis (Hot Store)
@@ -105,7 +105,7 @@ sequenceDiagram
 CUSTOMER LOGIC
 ```mermaid
 sequenceDiagram
-    participant C as Customer (5k)
+    participant C as Customer (10k)
     participant N as Ingress-Nginx (LB)
     participant R as Rust (Axum)
     participant D as Redis (Hot Store)
