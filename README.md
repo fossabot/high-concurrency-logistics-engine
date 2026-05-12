@@ -18,7 +18,7 @@ High-Concurrency Logistics Engine: Sustained 20k WebSockets on GKE with 0% error
 ![2500/s](https://img.shields.io/badge/throughput-2500_updates%2Fsec-brightgreen?style=for-the-badge)
 ![p95](https://img.shields.io/badge/p95_latency-24.7ms-brightgreen?style=for-the-badge)
 ![checks](https://img.shields.io/badge/check_pass_rate-100%25-brightgreen?style=for-the-badge)
-![Github Actions](https://img.shields.io/badge/check_pass_rate-100%25-brightblue?style=for-the-badge)
+![Github Actions](https://img.shields.io/badge/CI-brightblue?style=for-the-badge)
 
 Status: Fully Functional. Load-tested on GKE Standard. Open for technical deep-dives.
 
