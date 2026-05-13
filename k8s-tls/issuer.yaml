@@ -1,0 +1,27 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: parcel-api-tls
+  namespace: parcel-app
+spec:
+  secretName: parcel-api-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  commonName: 34-14-128-148.sslip.io
+  dnsNames:
+    - 34-14-128-148.sslip.io
+  # ECDSA instead of standard RSA
+  privateKey:
+    algorithm: ECDSA
+    size: 256

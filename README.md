@@ -26,7 +26,8 @@ K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
 ![Grafana Custom metrics from Backend Axum Api](./assets/Custom_metrics_grafana.png)
 
 The system has been Operated and run on **Google Kubernetes Engine**. 
-Kubernetes manifests are available in the `/k8s` directory.
+Kubernetes manifests for HTTP/non-TLS available in the `/k8s` directory.
+Kubernetes manifests for HTTPS/TLS available in the `/k8s-tls` directory.
 
 
 ---
@@ -46,9 +47,24 @@ Kubernetes manifests are available in the `/k8s` directory.
 
 **Check inside:** to figure out how I tested and identified the bottlenecks and optimized .
 
+##  TLS Test (GKE)
+
+ I ran three high-pressure  tests in a live GKE cluster at **20,000 VU load** to identify how RSA and ECDSA TLS cerificate increase the handshake from the TCP HTTP handshake.
 
 
-A production-grade distributed backend simulation for live courier tracking, built in Rust. Handles **20,000 concurrent WebSocket connections** with **100% success rate**
+| Experiment | p99(in ms)  | Security |
+| :--- | :---  | :--- |
+| **Normal TCP/HTTP** | 32.09ms  | Non-Encrypted  |
+| **Normal TLS RSA 2048** | 477ms  | Encrypted  |
+| **Normal TLS ECDSA** | 37.73ms | Encrypted |
+
+###  [View the Full TLS Engineering Report (TLS.md)](TLS.md)
+
+**Check inside:** to figure out how I tested with TLS certificate .
+
+A production-grade distributed backend platform built in Rust for real-time courier telemetry tracking. This engine successfully manages **20,000 concurrent, stateful WebSocket connections** over public network routes with a verified **100% data delivery success rate**.
+
+
 
 **Built as a case study** of how a real parcel delivery platform handles thousands of drivers simultaneously sending location updates while customers receive live location tracking in real time and database storing the coordinates of driver every 10 seconds.
 
@@ -63,15 +79,17 @@ Parcel delivery platforms have a hard real-time problem:
 - Systems that must not lose a position event or process one twice
 - Infrastructure that must scale horizontally without duplicate processing
 
-This system tries to solves all four end to end.
+This system solves all four end to end.
 
 ## Architecture
+
+**Architectural Focus:** This project serves as an infrastructure case study of how utilizing Rust enables a real-time parcel logistics delivery platform can handle thousands of transit vehicles sending high-frequency GPS telemetry coordinate frames simultaneously without blocking edge request loops, causing database write serialization locks, or losing data state during catastrophic cloud node failovers.
 
 The system uses an asynchronous, non-blocking tokio architecture to decouple high-frequency ingestion with redis cluster and send them to the  database persistence.  
 
 I used mainly Rust's ownership model as it  eliminates data races across 10k concurrent handlers at compile time — not at runtime.
 
-DRIVER LOGIC
+DRIVER DATAPIPELINE LOGIC
 ```mermaid
 sequenceDiagram
     participant C as Driver (10k)
@@ -102,7 +120,7 @@ sequenceDiagram
     end
 ```
 
-CUSTOMER LOGIC
+CUSTOMER DATAPIPELINE LOGIC
 ```mermaid
 sequenceDiagram
     participant C as Customer (10k)
@@ -167,7 +185,7 @@ sequenceDiagram
 
 For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 ![Architecture Diagram](./assets/Custom_metrics_grafana.png)
- [Dashbpard configuration of grafana in json](dashboard.json)
+ [Dashboard configuration of grafana in json](dashboard.json)
 ![Architecture Diagram](./assets/heatmap_grafana.png)
 
 [![Grafana Dashboard]](https://snapshots.raintank.io/dashboard/snapshot/cdbSuswQA77SlNUAsmZAqyyqTR0mqPXG)
