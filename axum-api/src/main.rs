@@ -185,10 +185,10 @@ async fn main() {
 
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .with_graceful_shutdown(async {
-                tokio::signal::ctrl_c()
-                    .await
-                    .expect("failed to install CTRL+C handler");
-            })
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to install CTRL+C handler");
+        })
         .await
         .unwrap();
 }
