@@ -45,7 +45,7 @@ as they are encrypted making security higher priority.
 I would implement ECDSA to improve the tailing p99 for connection which is also given below.
 
 
-# Normal test with 20,000 VU forced eviction of main backend axum-api in the cluster
+# Normal TCP/HTTPS ECDSA with 20,000 VU
 
 ![Loadtest Screenshot in a GKE](./assets/C20k_ECDSA.png)
 
