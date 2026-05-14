@@ -9,7 +9,7 @@
 
  - **Normal TCP/HTTP with 20,000 VU**
  - **Normal TCP/HTTPS RSA 2048 TLS with 20,000 VU**
- - **Normal TCP/HTTPS ECDSA TLS with 20,000 VU**
+ - **Normal TCP/HTTPS ECDSA P-256 TLS with 20,000 VU**
 
 
  # Normal TCP/HTTP with 20,000 VU
@@ -31,9 +31,9 @@ With k6 metrics **p(95)=169.82ms**, **p(99)=477.46ms** and **ws_errors=0**
 *Observations*
 
 In this k6 metrics, we can observe our connection spike in p99 near 500ms as RSA 2048
-is very CPU intensive and encrypted over the internet. This data proved how using 
-HTTPS increases connection duration time but making it secured preventing common Man 
-in the middle Attacks.
+due to RSA prime number factoring which is very CPU intensive and encrypted over the 
+internet. This data proved how using HTTPS increases connection duration time but 
+making it secured preventing common Man-in-the-Middle Attacks.
 
 
 *Result*
@@ -45,7 +45,7 @@ as they are encrypted making security higher priority.
 I would implement ECDSA to improve the tailing p99 for connection which is also given below.
 
 
-# Normal TCP/HTTPS ECDSA with 20,000 VU
+# Normal TCP/HTTPS ECDSA P-256 with 20,000 VU
 
 ![Loadtest Screenshot in a GKE](./assets/C20k_ECDSA.png)
 
@@ -56,7 +56,8 @@ With k6 metrics **p(95)=22.41ms**, **p(99)=37.73ms** and **ws_errors=0**
 *Observations*
 
 In this k6 metrics, we can observe our connection spike in p99 was only 37.73ms due to ECDSA
-being less CPU intensive operation with same level security and encrypted over the internet. 
+being lower CPU utilization for operation as it is uses Prime Weierstrass curve with similar level 
+security of RSA prime number factoring and encrypted over the internet. 
 
 *Result*
 Despite using encrypted channel for connection, Users data are just as secured as a RSA 2048 TLS connection
