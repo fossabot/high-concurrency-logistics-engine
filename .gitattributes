@@ -1,2 +1,2 @@
-loadtests/**
-*.json
+loadtests/** linguist-documentation=true
+*.json linguist-generated=true
