@@ -113,8 +113,8 @@ sequenceDiagram
     participant D as Redis (Hot Store)
     participant P as Postgres (Cold Store)
 
-    C->>N: WebSocket Stream + HTTPS/TLS ECDSA
-    N->>R: Upgrade & Forward + mTLS ECDSA
+    C->>N: WebSocket Stream (HTTPS/TLS ECDSA)
+    N->>R: Upgrade & Forward (mTLS ECDSA)
     
     Note over R: High-Frequency Loop
     
@@ -126,12 +126,12 @@ sequenceDiagram
     end
 
     par Async Persistence
-        R-->>C: 200 OK (Ack)
+        R-->>C: 200 OK (Ack) 
         and
         R->>R: Send to MPSC Channel
-        R->>D: Atomic Lua Update with deduplication
-        D->>R: Future Unordered latest REDIS STREAMS
-        R->>P: Batch Insert (Background Task)
+        R->>D: Atomic Lua Update with deduplication (mTLS ECDSA)
+        D->>R: Future Unordered latest REDIS STREAMS (mTLS ECDSA)
+        R->>P: Batch Insert (Background Task) (mTLS ECDSA)
     end
 ```
 
@@ -143,22 +143,22 @@ sequenceDiagram
     participant R as Rust (Axum)
     participant D as Redis (Hot Store)
 
-    C->>N: WebSocket Stream
-    N->>R: Upgrade & Forward
+    C->>N: WebSocket Stream (HTTPS/TLS ECDSA)
+    N->>R: Upgrade & Forward (mTLS ECDSA)
     
     Note over R: High-Frequency Loop
     
     rect rgb(20, 20, 20)
         Note right of R: The "Hot Path" (< 3ms)
         R->>R: Ed25519 Verify
-        R->>D: Subscribe Channel 
-        D-->>R: LocationUpdates of Parcel
+        R->>D: Subscribe Channel  (mTLS ECDSA)
+        D-->>R: LocationUpdates of Parcel (mTLS ECDSA)
     end
 
     par Async Persistence
         R->>R: DashMap watch Channel
         and
-        R-->>C: Location Update
+        R-->>C: Location Update 
        
     end
 ```
