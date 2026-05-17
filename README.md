@@ -113,8 +113,8 @@ sequenceDiagram
     participant D as Redis (Hot Store)
     participant P as Postgres (Cold Store)
 
-    C->>N: WebSocket Stream
-    N->>R: Upgrade & Forward
+    C->>N: WebSocket Stream + HTTPS/TLS ECDSA
+    N->>R: Upgrade & Forward + mTLS ECDSA
     
     Note over R: High-Frequency Loop
     
