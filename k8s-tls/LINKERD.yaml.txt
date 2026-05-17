@@ -1,0 +1,26 @@
+namespaceOverride: "linkerd"
+
+proxyInit:
+  runAsRoot: true
+
+clusterNetworks: "10.0.0.0/8,100.64.0.0/10,172.16.0.0/12,192.168.0.0/16,34.118.224.0/20"
+
+proxy:
+  resources:
+    cpu:
+      request: 250m
+      limit: 500m
+    memory:
+      request: 128Mi
+      limit: 500Mi
+
+identity:
+  issuer:
+    tls:
+      crtPEM: |
+      # paste linkerd-issuer.crt contents here
+      keyPEM: |
+      # paste linkerd-issuer.key contents here
+
+identityTrustAnchorsPEM: |
+ # paste linkerd-ca.crt contents here

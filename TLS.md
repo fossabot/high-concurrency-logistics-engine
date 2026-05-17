@@ -3,8 +3,8 @@
  It’s not enough to build for it to be useful case.So, I architected with TLS to encrypt the channel.
 
  For me to use the TLS encryption over the GKE cluster,I performed a total of three
- tests for normal TCP/HTTP from test script from ![K6 Test Script](./loadtests/20k_iterations_test.js) 
- and other two test for TCP/HTTPS from test scripts ![K6 Test Script](./loadtests/20k_tls_iterations_test.js).As I 
+ tests for normal TCP/HTTP from test script from [K6 Test Script](./loadtests/20k_iterations_test.js) 
+ and other two test for TCP/HTTPS from test scripts [K6 Test Script](./loadtests/20k_tls_iterations_test.js).As I 
  wanted to to quantify the latency of a backend  and measure the real world simulations for the users.
 
  - **Normal TCP/HTTP with 20,000 VU**

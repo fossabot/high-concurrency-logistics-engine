@@ -2,7 +2,7 @@
 
 Real-Time Parcel Tracking System 
 
-Real-Time Parcel Distribution  Logistics Engine: Sustained 20k WebSockets on GKE with 0% error rate.
+Real-Time Parcel Distribution  Logistics Engine: Sustained 20k Virtual Users WebSockets on GKE with 0% error rate.
 
 ![Rust](https://img.shields.io/badge/rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![Redis](https://img.shields.io/badge/redis_cluster-DC382D?style=for-the-badge&logo=redis&logoColor=white)
@@ -62,6 +62,21 @@ Kubernetes manifests for HTTPS/TLS available in the `/k8s-tls` directory.
 
 **Check inside:** to figure out how I tested with TLS certificate .
 
+##  mTLS between each pods / Zero Trust Architecture Test (GKE)
+
+ I ran three high-pressure  tests in a live GKE cluster at **20,000 VUs load** to identify how enabling Zero Trust Architecture adds latency to overall system .
+
+
+| Experiment | p99(in ms)  | p95 (in ms) | Security HTTPS/TLS | Pods Security mTLS | Result |
+| :--- | :---  | :--- | :---| :---| :---|
+| **Normal Test** | 37.73ms | 22.41ms  | Encrypted  |  Non-Encrypted | 0 errors and 100% websocket | 
+| **Normal mTLS ECDSA with improper allocations** | 47s |  30s | Encrypted  | Encrypted | 0 errors and 25% websocket |
+| **Normal mTLS ECDSA with proper allocations** | 144.26ms | 37.45ms | Encrypted | Encrypted | 0 errors and 100% websocket |
+
+###  [View the Full mTLS Engineering Report (mTLS.md)](mTLS.md)
+
+**Check inside:** to figure out how I tested for Zero Trust Architecture .
+
 A production-grade distributed backend platform built in Rust for real-time courier telemetry tracking. This engine successfully manages **20,000 concurrent, stateful WebSocket connections** over public network routes with a verified **100% data delivery success rate**.
 
 
@@ -76,7 +91,7 @@ Parcel delivery platforms have a hard real-time problem:
 
 - Thousands of drivers sending GPS coordinates every 2 seconds
 - Customers expecting live location updates with no perceptible lag
-- Systems that must not lose a position event or process one twice
+- Systems that must not lose a position event or process one twice (Idempotency)
 - Infrastructure that must scale horizontally without duplicate processing
 
 This system solves all four end to end.

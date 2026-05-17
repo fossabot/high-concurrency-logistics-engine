@@ -14,14 +14,16 @@ metadata:
     cert-manager.io/cluster-issuer: "selfsigned-issuer"
     cert-manager.io/private-key-algorithm: "ECDSA"
     cert-manager.io/private-key-size: "256"
+    linkerd.io/inject: enabled
+
 spec:
   tls:
     - hosts:
-        - 34-14-128-148.sslip.io
+        - 34-180-51-25.sslip.io
       secretName: parcel-api-tls
   ingressClassName: nginx
   rules:
-    - host: 34-14-128-148.sslip.io
+    - host: 34-180-51-25.sslip.io
       http:
         paths:
           - path: /

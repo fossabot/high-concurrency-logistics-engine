@@ -8,4 +8,5 @@ target/
 *.tfstate
 *.terraform
 **/secret.yaml
+k8s-tls/linkerd.yaml
 postgres-data-backup
