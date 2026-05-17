@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: v1 # Tried for a custom Side Proxy as a subsitute for linkerd
 kind: Service
 metadata:
   name: spire-server

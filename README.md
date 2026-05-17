@@ -20,7 +20,7 @@ Status: Fully Operated Load-tested on  GKE Standard Kubernetes. Open for technic
 
 ## Cloud Deployment (GKE)
 
-K6 loadtest run on the real live VM Instance and Google Kubernete Engine (GKE)
+K6 loadtest run on the real live VM Instance and Google Kubernetes Engine (GKE)
 ![C20k Concurrent User Load Test](./assets/C20k_iterations.png)
 ![Grafana Heatmap view from source Postgres](./assets/heatmap_othersample.png)
 ![Grafana Custom metrics from Backend Axum Api](./assets/Custom_metrics_grafana.png)
@@ -49,7 +49,7 @@ Kubernetes manifests for HTTPS/TLS available in the `/k8s-tls` directory.
 
 ##  TLS Test (GKE)
 
- I ran three high-pressure  tests in a live GKE cluster at **20,000 VU load** to identify how RSA and ECDSA TLS cerificate increase the handshake from the TCP HTTP handshake.
+ I ran three high-pressure  tests in a live GKE cluster at **20,000 VU load** to identify how RSA and ECDSA TLS certificate increase the handshake from the TCP HTTP handshake.
 
 
 | Experiment | p99(in ms)  | Security |

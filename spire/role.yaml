@@ -1,4 +1,4 @@
----
+--- # Tried for a custom Side Proxy as a subsitute for linkerd
 apiVersion: v1
 kind: ServiceAccount
 metadata:
