@@ -13,7 +13,7 @@ use axum::{
 use std::sync::Arc;
 use tokio::time::{interval, sleep, Duration};
 
-pub async fn ws_handler(
+pub async fn driver_handler(
     ws: WebSocketUpgrade,
     Query(params): Query<ConnectParams>,
     State(state): State<Arc<AppState>>,

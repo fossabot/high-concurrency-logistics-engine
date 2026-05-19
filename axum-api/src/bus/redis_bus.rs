@@ -121,7 +121,7 @@ pub async fn subscribe_parcel(state: &Arc<AppState>, parcel_id: &str) -> Result<
 pub async fn redis_stream_publish(state: &Arc<AppState>, parcel_id: &str) -> Result<(), SyncError> {
     let stream_tx = state.redis_channel.clone();
     const SCRIPT: &str = r#"
-        -- 1. Read from Hash internally (Atomic)
+               -- 1. Read from Hash internally (Atomic)
                local current_val = redis.call('HGET', KEYS[2], 'data')
                if  current_val == false then return -1 end -- Hash not found
                local data = cjson.decode(current_val)

@@ -21,8 +21,8 @@ use components::password::check_ed_keys;
 use components::{redis_read_background, setup_redis::setup_redis};
 use dotenvy::dotenv;
 use handlers::{
-    customer::customer_handler, login::login_handler, register::register_handler,
-    verify::verify_handler, ws::ws_handler,
+    customer::customer_handler, login::login_handler, parcel_duration::handle_parcel_duration,
+    register::register_handler, verify::verify_handler, ws::driver_handler,
 };
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use lettre::{transport::smtp::authentication::Credentials, AsyncSmtpTransport, Tokio1Executor};
@@ -160,8 +160,9 @@ async fn main() {
         .with_state(state.clone());
 
     let private_routes = Router::new()
-        .route("/ws", get(ws_handler))
+        .route("/ws", get(driver_handler))
         .route("/customer", get(customer_handler))
+        .route("/customer/parcel-history", get(handle_parcel_duration))
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
