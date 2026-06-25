@@ -29,6 +29,8 @@ The system has been Operated and run on **Google Kubernetes Engine**.
 Kubernetes manifests for HTTP/non-TLS available in the `/k8s` directory.
 Kubernetes manifests for HTTPS/TLS available in the `/k8s-tls` directory.
 
+> 💡 **If you enjoy the architecture?** If this GKE chaos testing framework or Rust WebSocket implementation helped you build or optimize your own systems, please consider giving this repository a ⭐ **Star** to support the project!
+
 
 ---
 
