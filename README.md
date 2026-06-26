@@ -232,8 +232,10 @@ For 10000 VUs, 5000 Driver VUs and 5000 Customer VUs
 ---
 
 
+
 ## Author
 **Pramod S B**
 Backend Engineer — Real-time distributed systems in Rust
 Bengaluru, India
+contact e-mail: pramodsb884@gmail.com
 [github.com/Prati-source](https://github.com/Prati-source)
