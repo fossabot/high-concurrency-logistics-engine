@@ -15,6 +15,7 @@ Real-Time Parcel Distribution  Logistics Engine: Sustained 20k Virtual Users Web
 ![Grafana](https://img.shields.io/badge/grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 ![K6](https://img.shields.io/badge/k6_load_testing-7D64FF?style=for-the-badge&logo=k6&logoColor=white)
 ![Github Actions](https://img.shields.io/badge/Github-Actions-brightblue?style=for-the-badge)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FPrati-source%2Fhigh-concurrency-logistics-engine.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FPrati-source%2Fhigh-concurrency-logistics-engine?ref=badge_shield)
 
 Status: Fully Operated Load-tested on  GKE Standard Kubernetes. Open for technical deep-dives.
 
@@ -239,3 +240,7 @@ Backend Engineer — Real-time distributed systems in Rust
 Bengaluru, India
 contact e-mail: pramodsb884@gmail.com
 [github.com/Prati-source](https://github.com/Prati-source)
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FPrati-source%2Fhigh-concurrency-logistics-engine.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FPrati-source%2Fhigh-concurrency-logistics-engine?ref=badge_large)
