@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Pramod S B (://github.com)
+// Portions of this software are licensed under the MIT License.
+// See the root LICENSE file for full terms and conditions.
+
 use axum::{
     middleware,
     routing::{get, post},
